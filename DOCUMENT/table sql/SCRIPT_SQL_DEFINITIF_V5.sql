@@ -1,20 +1,94 @@
 -- ============================================================
--- EASY INCENDIE - CORRECTION COMPLÈTE DU FLUX INSCRIPTION
--- Exécuter TOUT ce script dans Supabase SQL Editor
+-- EASY INCENDIE - SCRIPT SQL DÉFINITIF V5
 -- ============================================================
 -- 
--- Ce script corrige:
--- 1. La colonne auth_id dans utilisateurs
--- 2. La fonction get_user_organisation_id()
--- 3. Les RLS pour demandes_prospects (INSERT anonyme)
--- 4. La fonction RPC complete_registration (bypass RLS)
--- 5. La fonction RPC create_subscription (bypass RLS)
--- 6. Crée les tables manquantes si besoin
+-- FUSION COMPLÈTE de:
+-- - SOLUTION_COMPLETE_FLUX.sql (structure originale)
+-- - Corrections des colonnes (structure BDD réelle)
+-- - Ordre d'exécution corrigé (éviter erreurs dépendances)
+--
+-- Ce script contient:
+-- 1. Suppression des policies (AVANT la fonction)
+-- 2. Recréation de la fonction get_user_organisation_id
+-- 3. Création des tables SI elles n'existent pas
+-- 4. Ajout des colonnes manquantes
+-- 5. Recréation des policies RLS
+-- 6. Fonctions RPC complete_registration CORRIGÉE
+-- 7. Fonction RPC create_subscription
+-- 8. Vérifications finales
 --
 -- ============================================================
 
 -- ============================================================
--- ÉTAPE 1 : Ajouter auth_id si n'existe pas
+-- ÉTAPE 1 : SUPPRIMER TOUTES LES POLICIES D'ABORD
+-- (OBLIGATOIRE pour éviter l'erreur "cannot drop function 
+-- get_user_organisation_id() because other objects depend on it")
+-- ============================================================
+
+-- Policies demandes_prospects
+DROP POLICY IF EXISTS "prospects_insert_policy" ON demandes_prospects;
+DROP POLICY IF EXISTS "prospects_select_policy" ON demandes_prospects;
+DROP POLICY IF EXISTS "prospects_update_policy" ON demandes_prospects;
+DROP POLICY IF EXISTS "prospects_insert" ON demandes_prospects;
+DROP POLICY IF EXISTS "prospects_select" ON demandes_prospects;
+DROP POLICY IF EXISTS "prospects_update" ON demandes_prospects;
+DROP POLICY IF EXISTS "prospects_insert_anon" ON demandes_prospects;
+DROP POLICY IF EXISTS "prospects_select_own" ON demandes_prospects;
+DROP POLICY IF EXISTS "prospects_update_own" ON demandes_prospects;
+
+-- Policies abonnements
+DROP POLICY IF EXISTS "abonnements_select_policy" ON abonnements;
+DROP POLICY IF EXISTS "abonnements_insert_policy" ON abonnements;
+DROP POLICY IF EXISTS "abonnements_update_policy" ON abonnements;
+DROP POLICY IF EXISTS "abo_select" ON abonnements;
+DROP POLICY IF EXISTS "abo_insert" ON abonnements;
+DROP POLICY IF EXISTS "abo_update" ON abonnements;
+DROP POLICY IF EXISTS "abonnements_select" ON abonnements;
+DROP POLICY IF EXISTS "abonnements_insert" ON abonnements;
+DROP POLICY IF EXISTS "abonnements_update" ON abonnements;
+
+-- Policies organisations
+DROP POLICY IF EXISTS "organisations_select_policy" ON organisations;
+DROP POLICY IF EXISTS "organisations_insert_policy" ON organisations;
+DROP POLICY IF EXISTS "organisations_update_policy" ON organisations;
+DROP POLICY IF EXISTS "org_select" ON organisations;
+DROP POLICY IF EXISTS "org_update" ON organisations;
+DROP POLICY IF EXISTS "org_insert" ON organisations;
+
+-- Policies utilisateurs
+DROP POLICY IF EXISTS "utilisateurs_select_policy" ON utilisateurs;
+DROP POLICY IF EXISTS "utilisateurs_insert_policy" ON utilisateurs;
+DROP POLICY IF EXISTS "utilisateurs_update_policy" ON utilisateurs;
+DROP POLICY IF EXISTS "utilisateurs_delete_policy" ON utilisateurs;
+DROP POLICY IF EXISTS "users_select" ON utilisateurs;
+DROP POLICY IF EXISTS "users_insert" ON utilisateurs;
+DROP POLICY IF EXISTS "users_update" ON utilisateurs;
+DROP POLICY IF EXISTS "users_delete" ON utilisateurs;
+
+-- Policies onboarding_progress
+DROP POLICY IF EXISTS "onboarding_select" ON onboarding_progress;
+DROP POLICY IF EXISTS "onboarding_insert" ON onboarding_progress;
+DROP POLICY IF EXISTS "onboarding_update" ON onboarding_progress;
+DROP POLICY IF EXISTS "onboarding_select_policy" ON onboarding_progress;
+DROP POLICY IF EXISTS "onboarding_insert_policy" ON onboarding_progress;
+DROP POLICY IF EXISTS "onboarding_update_policy" ON onboarding_progress;
+
+-- ============================================================
+-- ÉTAPE 2 : Maintenant on peut supprimer et recréer la fonction
+-- ============================================================
+
+DROP FUNCTION IF EXISTS public.get_user_organisation_id();
+
+CREATE OR REPLACE FUNCTION public.get_user_organisation_id()
+RETURNS UUID AS $$
+  SELECT organisation_id 
+  FROM public.utilisateurs 
+  WHERE auth_id = auth.uid()
+  LIMIT 1;
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
+-- ============================================================
+-- ÉTAPE 3 : Ajouter auth_id à utilisateurs si n'existe pas
 -- ============================================================
 
 DO $$
@@ -32,21 +106,7 @@ BEGIN
 END $$;
 
 -- ============================================================
--- ÉTAPE 2 : Corriger get_user_organisation_id()
--- ============================================================
-
-DROP FUNCTION IF EXISTS public.get_user_organisation_id();
-
-CREATE OR REPLACE FUNCTION public.get_user_organisation_id()
-RETURNS UUID AS $$
-  SELECT organisation_id 
-  FROM public.utilisateurs 
-  WHERE auth_id = auth.uid()
-  LIMIT 1;
-$$ LANGUAGE SQL SECURITY DEFINER STABLE;
-
--- ============================================================
--- ÉTAPE 3 : Tables manquantes
+-- ÉTAPE 4 : Créer les tables SI elles n'existent pas
 -- ============================================================
 
 -- Table demandes_prospects
@@ -68,7 +128,7 @@ CREATE TABLE IF NOT EXISTS demandes_prospects (
 -- Table abonnements
 CREATE TABLE IF NOT EXISTS abonnements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organisation_id UUID NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+  organisation_id UUID REFERENCES organisations(id) ON DELETE CASCADE,
   formule TEXT DEFAULT 'starter',
   statut TEXT DEFAULT 'trial',
   domaines_actifs TEXT[] DEFAULT ARRAY['SSI'],
@@ -85,17 +145,40 @@ CREATE TABLE IF NOT EXISTS abonnements (
 );
 
 -- Table onboarding_progress
+-- ⚠️ COLONNES RÉELLES: step_profil, step_logo, step_client, etc.
+-- ❌ N'EXISTENT PAS: etape_actuelle, etapes_completees, donnees_temporaires
 CREATE TABLE IF NOT EXISTS onboarding_progress (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organisation_id UUID NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
-  etape_actuelle INTEGER DEFAULT 1,
-  etapes_completees TEXT[] DEFAULT ARRAY[]::text[],
-  donnees_temporaires JSONB DEFAULT '{}',
+  organisation_id UUID REFERENCES organisations(id) ON DELETE CASCADE,
+  step_profil BOOLEAN DEFAULT false,
+  step_logo BOOLEAN DEFAULT false,
+  step_client BOOLEAN DEFAULT false,
+  step_site BOOLEAN DEFAULT false,
+  step_equipement BOOLEAN DEFAULT false,
+  step_technicien BOOLEAN DEFAULT false,
+  step_rapport BOOLEAN DEFAULT false,
   completed BOOLEAN DEFAULT false,
+  completed_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(organisation_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Ajouter contrainte unique sur organisation_id si n'existe pas
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'onboarding_progress_org_unique'
+  ) THEN
+    BEGIN
+      ALTER TABLE onboarding_progress ADD CONSTRAINT onboarding_progress_org_unique UNIQUE(organisation_id);
+      RAISE NOTICE '✅ Contrainte unique ajoutée sur onboarding_progress';
+    EXCEPTION WHEN duplicate_object THEN
+      RAISE NOTICE 'ℹ️ Contrainte existe déjà';
+    END;
+  ELSE
+    RAISE NOTICE 'ℹ️ Contrainte onboarding_progress_org_unique existe déjà';
+  END IF;
+END $$;
 
 -- Ajouter colonne modules_actifs à organisations si manquante
 DO $$
@@ -106,24 +189,19 @@ BEGIN
   ) THEN
     ALTER TABLE organisations ADD COLUMN modules_actifs TEXT[] DEFAULT ARRAY['SSI'];
     RAISE NOTICE '✅ Colonne modules_actifs ajoutée à organisations';
+  ELSE
+    RAISE NOTICE 'ℹ️ Colonne modules_actifs existe déjà';
   END IF;
 END $$;
 
 -- ============================================================
--- ÉTAPE 4 : RLS pour demandes_prospects (IMPORTANT!)
+-- ÉTAPE 5 : RLS pour demandes_prospects
+-- CRITIQUE: Permettre INSERT ANONYME (avant que l'user soit confirmé)
 -- ============================================================
 
 ALTER TABLE demandes_prospects ENABLE ROW LEVEL SECURITY;
 
--- Supprimer les anciennes policies
-DROP POLICY IF EXISTS "prospects_insert_policy" ON demandes_prospects;
-DROP POLICY IF EXISTS "prospects_select_policy" ON demandes_prospects;
-DROP POLICY IF EXISTS "prospects_update_policy" ON demandes_prospects;
-DROP POLICY IF EXISTS "prospects_insert" ON demandes_prospects;
-DROP POLICY IF EXISTS "prospects_select" ON demandes_prospects;
-DROP POLICY IF EXISTS "prospects_update" ON demandes_prospects;
-
--- CRITIQUE: Permettre INSERT ANONYME (avant que l'user soit confirmé)
+-- Permettre INSERT ANONYME (avant confirmation email)
 CREATE POLICY "prospects_insert_anon" ON demandes_prospects
   FOR INSERT WITH CHECK (true);
 
@@ -142,17 +220,10 @@ CREATE POLICY "prospects_update_own" ON demandes_prospects
   );
 
 -- ============================================================
--- ÉTAPE 5 : RLS pour abonnements
+-- ÉTAPE 6 : RLS pour abonnements
 -- ============================================================
 
 ALTER TABLE abonnements ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "abonnements_select_policy" ON abonnements;
-DROP POLICY IF EXISTS "abonnements_insert_policy" ON abonnements;
-DROP POLICY IF EXISTS "abonnements_update_policy" ON abonnements;
-DROP POLICY IF EXISTS "abo_select" ON abonnements;
-DROP POLICY IF EXISTS "abo_insert" ON abonnements;
-DROP POLICY IF EXISTS "abo_update" ON abonnements;
 
 CREATE POLICY "abonnements_select" ON abonnements
   FOR SELECT USING (organisation_id = public.get_user_organisation_id());
@@ -164,15 +235,10 @@ CREATE POLICY "abonnements_update" ON abonnements
   FOR UPDATE USING (organisation_id = public.get_user_organisation_id());
 
 -- ============================================================
--- ÉTAPE 6 : RLS pour organisations (permettre INSERT pour inscription)
+-- ÉTAPE 7 : RLS pour organisations (permettre INSERT pour inscription)
 -- ============================================================
 
-DROP POLICY IF EXISTS "organisations_select_policy" ON organisations;
-DROP POLICY IF EXISTS "organisations_insert_policy" ON organisations;
-DROP POLICY IF EXISTS "organisations_update_policy" ON organisations;
-DROP POLICY IF EXISTS "org_select" ON organisations;
-DROP POLICY IF EXISTS "org_update" ON organisations;
-DROP POLICY IF EXISTS "org_insert" ON organisations;
+ALTER TABLE organisations ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "org_select" ON organisations
   FOR SELECT USING (id = public.get_user_organisation_id());
@@ -185,17 +251,10 @@ CREATE POLICY "org_update" ON organisations
   FOR UPDATE USING (id = public.get_user_organisation_id());
 
 -- ============================================================
--- ÉTAPE 7 : RLS pour utilisateurs
+-- ÉTAPE 8 : RLS pour utilisateurs
 -- ============================================================
 
-DROP POLICY IF EXISTS "utilisateurs_select_policy" ON utilisateurs;
-DROP POLICY IF EXISTS "utilisateurs_insert_policy" ON utilisateurs;
-DROP POLICY IF EXISTS "utilisateurs_update_policy" ON utilisateurs;
-DROP POLICY IF EXISTS "utilisateurs_delete_policy" ON utilisateurs;
-DROP POLICY IF EXISTS "users_select" ON utilisateurs;
-DROP POLICY IF EXISTS "users_insert" ON utilisateurs;
-DROP POLICY IF EXISTS "users_update" ON utilisateurs;
-DROP POLICY IF EXISTS "users_delete" ON utilisateurs;
+ALTER TABLE utilisateurs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "users_select" ON utilisateurs
   FOR SELECT USING (
@@ -216,17 +275,10 @@ CREATE POLICY "users_delete" ON utilisateurs
   FOR DELETE USING (organisation_id = public.get_user_organisation_id());
 
 -- ============================================================
--- ÉTAPE 8 : RLS pour onboarding_progress
+-- ÉTAPE 9 : RLS pour onboarding_progress
 -- ============================================================
 
 ALTER TABLE onboarding_progress ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "onboarding_select" ON onboarding_progress;
-DROP POLICY IF EXISTS "onboarding_insert" ON onboarding_progress;
-DROP POLICY IF EXISTS "onboarding_update" ON onboarding_progress;
-DROP POLICY IF EXISTS "onboarding_select_policy" ON onboarding_progress;
-DROP POLICY IF EXISTS "onboarding_insert_policy" ON onboarding_progress;
-DROP POLICY IF EXISTS "onboarding_update_policy" ON onboarding_progress;
 
 CREATE POLICY "onboarding_select" ON onboarding_progress
   FOR SELECT USING (organisation_id = public.get_user_organisation_id());
@@ -238,7 +290,21 @@ CREATE POLICY "onboarding_update" ON onboarding_progress
   FOR UPDATE USING (organisation_id = public.get_user_organisation_id());
 
 -- ============================================================
--- ÉTAPE 9 : Fonction RPC complete_registration (BYPASS RLS)
+-- ÉTAPE 10 : Fonction RPC complete_registration (BYPASS RLS)
+-- ============================================================
+-- 
+-- ⚠️ IMPORTANT: Cette fonction utilise UNIQUEMENT les colonnes
+-- qui EXISTENT RÉELLEMENT dans la base de données !
+--
+-- COLONNES RÉELLES de la table organisations:
+-- id, nom, siret, siren, adresse, code_postal, ville, telephone, 
+-- email, site_web, forme_juridique, capital, tva_intra, ape_naf, 
+-- created_at, updated_at, modules_actifs
+--
+-- ❌ N'EXISTENT PAS (erreur dans l'ancien script):
+-- formule, module_ssi, module_desenfumage, module_portes_cf, 
+-- module_baes, module_extincteurs, module_ria, actif
+--
 -- ============================================================
 
 DROP FUNCTION IF EXISTS public.complete_registration(text, text, text, text, text, text, text[], text, integer);
@@ -271,10 +337,11 @@ BEGIN
   END IF;
   
   -- Vérifier si l'utilisateur existe déjà
-  SELECT id INTO v_user_id FROM utilisateurs WHERE auth_id = v_auth_id;
+  SELECT id, organisation_id INTO v_user_id, v_org_id 
+  FROM utilisateurs WHERE auth_id = v_auth_id;
+  
   IF v_user_id IS NOT NULL THEN
     -- Retourner les infos existantes au lieu d'erreur
-    SELECT organisation_id INTO v_org_id FROM utilisateurs WHERE id = v_user_id;
     RETURN jsonb_build_object(
       'success', true,
       'already_exists', true,
@@ -283,17 +350,14 @@ BEGIN
     );
   END IF;
   
-  -- Créer l'organisation
+  -- ============================================================
+  -- CRÉER L'ORGANISATION
+  -- Utilise UNIQUEMENT les colonnes qui EXISTENT RÉELLEMENT
+  -- ============================================================
   INSERT INTO organisations (
-    nom, siret, ville, email, telephone, formule,
-    module_ssi, module_desenfumage, module_portes_cf, 
-    module_baes, module_extincteurs, module_ria,
-    modules_actifs, actif
+    nom, siret, ville, email, telephone, modules_actifs
   ) VALUES (
-    p_entreprise, p_siret, p_ville, v_email, p_telephone, p_formule,
-    'SSI' = ANY(p_domaines), 'DSF' = ANY(p_domaines), 'CMP' = ANY(p_domaines),
-    'BAES' = ANY(p_domaines), 'EXT' = ANY(p_domaines), 'RIA' = ANY(p_domaines),
-    p_domaines, true
+    p_entreprise, p_siret, p_ville, v_email, p_telephone, p_domaines
   )
   RETURNING id INTO v_org_id;
   
@@ -305,9 +369,16 @@ BEGIN
   )
   RETURNING id INTO v_user_id;
   
-  -- Créer l'onboarding progress
-  INSERT INTO onboarding_progress (organisation_id, etape_actuelle, completed)
-  VALUES (v_org_id, 1, false)
+  -- ============================================================
+  -- CRÉER L'ONBOARDING PROGRESS
+  -- Utilise les VRAIES colonnes: step_profil, step_logo, etc.
+  -- ❌ N'existent pas: etape_actuelle, etapes_completees
+  -- ============================================================
+  INSERT INTO onboarding_progress (
+    organisation_id, step_profil, completed
+  ) VALUES (
+    v_org_id, true, false
+  )
   ON CONFLICT (organisation_id) DO NOTHING;
   
   -- Mettre à jour le prospect si existe (lier à l'organisation)
@@ -334,7 +405,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
--- ÉTAPE 10 : Fonction RPC create_subscription (BYPASS RLS)
+-- ÉTAPE 11 : Fonction RPC create_subscription (BYPASS RLS)
 -- ============================================================
 
 DROP FUNCTION IF EXISTS public.create_subscription(text[], integer, numeric, jsonb);
@@ -417,6 +488,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- VÉRIFICATIONS FINALES
 -- ============================================================
 
+SELECT '=== VÉRIFICATIONS ===' AS status;
+
 -- Vérifier auth_id
 SELECT 'auth_id exists: ' || EXISTS(
   SELECT 1 FROM information_schema.columns 
@@ -424,30 +497,46 @@ SELECT 'auth_id exists: ' || EXISTS(
 )::text AS check_1;
 
 -- Vérifier les fonctions
+SELECT 'get_user_organisation_id exists: ' || EXISTS(
+  SELECT 1 FROM pg_proc WHERE proname = 'get_user_organisation_id'
+)::text AS check_2;
+
 SELECT 'complete_registration exists: ' || EXISTS(
   SELECT 1 FROM pg_proc WHERE proname = 'complete_registration'
-)::text AS check_2;
+)::text AS check_3;
 
 SELECT 'create_subscription exists: ' || EXISTS(
   SELECT 1 FROM pg_proc WHERE proname = 'create_subscription'
-)::text AS check_3;
+)::text AS check_4;
 
 -- Vérifier les tables
 SELECT 'demandes_prospects exists: ' || EXISTS(
   SELECT 1 FROM information_schema.tables WHERE table_name = 'demandes_prospects'
-)::text AS check_4;
+)::text AS check_5;
 
 SELECT 'abonnements exists: ' || EXISTS(
   SELECT 1 FROM information_schema.tables WHERE table_name = 'abonnements'
-)::text AS check_5;
+)::text AS check_6;
+
+SELECT 'onboarding_progress exists: ' || EXISTS(
+  SELECT 1 FROM information_schema.tables WHERE table_name = 'onboarding_progress'
+)::text AS check_7;
+
+SELECT 'modules_actifs in organisations: ' || EXISTS(
+  SELECT 1 FROM information_schema.columns 
+  WHERE table_name = 'organisations' AND column_name = 'modules_actifs'
+)::text AS check_8;
 
 -- ============================================================
--- FIN DU SCRIPT
+-- FIN DU SCRIPT V5 DÉFINITIF
 -- 
--- RÉSULTAT ATTENDU:
+-- RÉSULTAT ATTENDU (8 vérifications):
 -- ✅ check_1: auth_id exists: true
--- ✅ check_2: complete_registration exists: true
--- ✅ check_3: create_subscription exists: true
--- ✅ check_4: demandes_prospects exists: true
--- ✅ check_5: abonnements exists: true
+-- ✅ check_2: get_user_organisation_id exists: true
+-- ✅ check_3: complete_registration exists: true
+-- ✅ check_4: create_subscription exists: true
+-- ✅ check_5: demandes_prospects exists: true
+-- ✅ check_6: abonnements exists: true
+-- ✅ check_7: onboarding_progress exists: true
+-- ✅ check_8: modules_actifs in organisations: true
 -- ============================================================

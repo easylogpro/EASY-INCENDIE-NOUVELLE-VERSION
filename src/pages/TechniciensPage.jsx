@@ -21,6 +21,7 @@ const TechniciensPage = () => {
     nom: '',
     prenom: '',
     email: '',
+    telephone: '',
   });
 
   useEffect(() => { loadData(); }, [orgId]);
@@ -52,7 +53,7 @@ const TechniciensPage = () => {
   );
 
   const openCreateModal = () => {
-    setFormData({ groupe_id: '', matricule: '', nom: '', prenom: '', email: '' });
+    setFormData({ groupe_id: '', matricule: '', nom: '', prenom: '', email: '', telephone: '' });
     setModalMode('create');
   };
 
@@ -64,6 +65,7 @@ const TechniciensPage = () => {
       nom: tech.nom || '',
       prenom: tech.prenom || '',
       email: tech.email || '',
+      telephone: tech.telephone || '',
     });
     setModalMode('edit');
   };
@@ -193,6 +195,7 @@ const TechniciensPage = () => {
             <Input label="Nom *" value={formData.nom} onChange={(e) => setFormData({...formData, nom: e.target.value})} />
           </div>
           <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+          <Input label="Téléphone *" value={formData.telephone} onChange={(e) => setFormData({...formData, telephone: e.target.value})} />
           <Input label="Matricule" value={formData.matricule} onChange={(e) => setFormData({...formData, matricule: e.target.value})} />
         </div>
       </Modal>

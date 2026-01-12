@@ -36,7 +36,7 @@ const TravauxPage = () => {
     description: '',
     date_prevue: '',
     technicien_id: '',
-    montant_ht: ''
+    cout: ''    // ⚠️ Corrigé: était "montant_ht"
   });
 
   useEffect(() => {
@@ -97,7 +97,7 @@ const TravauxPage = () => {
         statut: formData.date_prevue ? 'planifie' : 'devis',
         devis_id: formData.devis_id || null,
         technicien_id: formData.technicien_id || null,
-        montant_ht: formData.montant_ht ? parseFloat(formData.montant_ht) : null
+        cout: formData.cout ? parseFloat(formData.cout) : null  // ⚠️ Corrigé
       });
 
       setShowModal(false);
@@ -129,7 +129,7 @@ const TravauxPage = () => {
       description: '',
       date_prevue: '',
       technicien_id: '',
-      montant_ht: ''
+      cout: ''    // ⚠️ Corrigé
     });
   };
 
@@ -366,12 +366,12 @@ const TravauxPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Montant HT (€)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Coût (€)</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.montant_ht}
-                    onChange={(e) => setFormData({ ...formData, montant_ht: e.target.value })}
+                    value={formData.cout}
+                    onChange={(e) => setFormData({ ...formData, cout: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>

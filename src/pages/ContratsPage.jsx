@@ -42,8 +42,8 @@ const ContratsPage = () => {
     prix_annuel_ht: '',
     date_debut: '',
     date_fin: '',
-    reconduction_auto: true,
-    notes: ''
+    reconduction_auto: true
+    // ⚠️ Supprimé: notes (n'existe pas dans la table contrats)
   });
 
   useEffect(() => {
@@ -118,8 +118,8 @@ const ContratsPage = () => {
       prix_annuel_ht: '',
       date_debut: '',
       date_fin: '',
-      reconduction_auto: true,
-      notes: ''
+      reconduction_auto: true
+      // ⚠️ Supprimé: notes
     });
   };
 

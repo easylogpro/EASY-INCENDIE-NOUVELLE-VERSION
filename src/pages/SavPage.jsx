@@ -39,9 +39,9 @@ const SavPage = () => {
     site_id: '',
     domaine: 'SSI',
     priorite: 'P2',
-    description: '',
-    contact_nom: '',
-    contact_telephone: '',
+    symptome_declare: '',      // ⚠️ Corrigé: était "description"
+    demandeur_nom: '',         // ⚠️ Corrigé: était "contact_nom"
+    demandeur_tel: '',         // ⚠️ Corrigé: était "contact_telephone"
     technicien_id: ''
   });
 
@@ -108,7 +108,7 @@ const SavPage = () => {
         organisation_id: orgId,
         numero,
         statut: formData.technicien_id ? 'affecte' : 'nouveau',
-        date_limite: dateLimite.toISOString(),
+        date_demande: new Date().toISOString(),
         technicien_id: formData.technicien_id || null
       });
 
@@ -124,7 +124,7 @@ const SavPage = () => {
     try {
       const updates = { statut: newStatut };
       if (newStatut === 'termine') {
-        updates.date_resolution = new Date().toISOString();
+        updates.date_realisation = new Date().toISOString();  // ⚠️ Corrigé
       }
       await supabase.from('sav').update(updates).eq('id', id);
       loadData();
@@ -153,9 +153,9 @@ const SavPage = () => {
       site_id: '',
       domaine: 'SSI',
       priorite: 'P2',
-      description: '',
-      contact_nom: '',
-      contact_telephone: '',
+      symptome_declare: '',    // ⚠️ Corrigé
+      demandeur_nom: '',       // ⚠️ Corrigé
+      demandeur_tel: '',       // ⚠️ Corrigé
       technicien_id: ''
     });
   };
@@ -183,7 +183,7 @@ const SavPage = () => {
     const matchSearch = 
       d.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.sites?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      d.symptome_declare?.toLowerCase().includes(searchTerm.toLowerCase());  // ⚠️ Corrigé
     const matchPriorite = !filterPriorite || d.priorite === filterPriorite;
     const matchStatut = !filterStatut || d.statut === filterStatut;
     return matchSearch && matchPriorite && matchStatut;
@@ -301,7 +301,7 @@ const SavPage = () => {
           {filteredDemandes.map((demande) => {
             const priorite = PRIORITES[demande.priorite] || PRIORITES.P2;
             const statut = STATUTS[demande.statut] || STATUTS.nouveau;
-            const timeRemaining = getTimeRemaining(demande.date_limite);
+            const timeRemaining = getTimeRemaining(demande.date_prevue);  // ⚠️ Corrigé: date_limite n'existe pas
             const isActive = !['termine', 'facture'].includes(demande.statut);
 
             return (
@@ -323,7 +323,7 @@ const SavPage = () => {
                       <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">{demande.domaine}</span>
                     </div>
                     <p className="font-medium text-gray-900">{demande.sites?.nom || 'Site inconnu'}</p>
-                    <p className="text-gray-500 text-sm">{demande.description}</p>
+                    <p className="text-gray-500 text-sm">{demande.symptome_declare}</p>
                   </div>
 
                   {/* Compte à rebours */}
@@ -442,10 +442,10 @@ const SavPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Symptôme déclaré *</label>
                 <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  value={formData.symptome_declare}
+                  onChange={(e) => setFormData({ ...formData, symptome_declare: e.target.value })}
                   required
                   rows={3}
                   placeholder="Décrivez le problème..."
@@ -455,21 +455,21 @@ const SavPage = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact sur site</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Demandeur</label>
                   <input
                     type="text"
-                    value={formData.contact_nom}
-                    onChange={(e) => setFormData({ ...formData, contact_nom: e.target.value })}
-                    placeholder="Nom du contact"
+                    value={formData.demandeur_nom}
+                    onChange={(e) => setFormData({ ...formData, demandeur_nom: e.target.value })}
+                    placeholder="Nom du demandeur"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone contact</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone demandeur</label>
                   <input
                     type="tel"
-                    value={formData.contact_telephone}
-                    onChange={(e) => setFormData({ ...formData, contact_telephone: e.target.value })}
+                    value={formData.demandeur_tel}
+                    onChange={(e) => setFormData({ ...formData, demandeur_tel: e.target.value })}
                     placeholder="06 12 34 56 78"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
                   />

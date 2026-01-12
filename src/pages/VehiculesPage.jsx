@@ -21,9 +21,9 @@ const VehiculesPage = () => {
     immatriculation: '',
     marque: '',
     modele: '',
-    annee: new Date().getFullYear(),
-    kilometrage: 0,
-    date_ct: '',
+    date_mise_circulation: '',    // ⚠️ Corrigé: était "annee"
+    km_actuel: 0,                 // ⚠️ Corrigé: était "kilometrage"
+    date_prochain_ct: '',         // ⚠️ Corrigé: était "date_ct"
     technicien_id: '',
     notes: ''
   });
@@ -100,9 +100,9 @@ const VehiculesPage = () => {
       immatriculation: '',
       marque: '',
       modele: '',
-      annee: new Date().getFullYear(),
-      kilometrage: 0,
-      date_ct: '',
+      date_mise_circulation: '',    // ⚠️ Corrigé
+      km_actuel: 0,                 // ⚠️ Corrigé
+      date_prochain_ct: '',         // ⚠️ Corrigé
       technicien_id: '',
       notes: ''
     });
@@ -115,9 +115,9 @@ const VehiculesPage = () => {
       immatriculation: vehicule.immatriculation || '',
       marque: vehicule.marque || '',
       modele: vehicule.modele || '',
-      annee: vehicule.annee || new Date().getFullYear(),
-      kilometrage: vehicule.kilometrage || 0,
-      date_ct: vehicule.date_ct || '',
+      date_mise_circulation: vehicule.date_mise_circulation || '',  // ⚠️ Corrigé
+      km_actuel: vehicule.km_actuel || 0,                           // ⚠️ Corrigé
+      date_prochain_ct: vehicule.date_prochain_ct || '',            // ⚠️ Corrigé
       technicien_id: vehicule.technicien_id || '',
       notes: vehicule.notes || ''
     });
@@ -143,9 +143,9 @@ const VehiculesPage = () => {
     v.modele?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const statsCtOk = vehicules.filter(v => !isCtExpired(v.date_ct) && !isCtExpiringSoon(v.date_ct)).length;
-  const statsCtWarning = vehicules.filter(v => isCtExpiringSoon(v.date_ct)).length;
-  const statsCtExpired = vehicules.filter(v => isCtExpired(v.date_ct)).length;
+  const statsCtOk = vehicules.filter(v => !isCtExpired(v.date_prochain_ct) && !isCtExpiringSoon(v.date_prochain_ct)).length;
+  const statsCtWarning = vehicules.filter(v => isCtExpiringSoon(v.date_prochain_ct)).length;
+  const statsCtExpired = vehicules.filter(v => isCtExpired(v.date_prochain_ct)).length;
 
   return (
     <div className="p-6 space-y-6">
@@ -265,18 +265,18 @@ const VehiculesPage = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2 text-gray-600">
                   <Gauge className="w-4 h-4" />
-                  <span>{vehicule.kilometrage?.toLocaleString() || 0} km</span>
+                  <span>{vehicule.km_actuel?.toLocaleString() || 0} km</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-gray-400" />
                   <span className={`
-                    ${isCtExpired(vehicule.date_ct) ? 'text-red-600 font-medium' : ''}
-                    ${isCtExpiringSoon(vehicule.date_ct) ? 'text-yellow-600 font-medium' : ''}
-                    ${!isCtExpired(vehicule.date_ct) && !isCtExpiringSoon(vehicule.date_ct) ? 'text-gray-600' : ''}
+                    ${isCtExpired(vehicule.date_prochain_ct) ? 'text-red-600 font-medium' : ''}
+                    ${isCtExpiringSoon(vehicule.date_prochain_ct) ? 'text-yellow-600 font-medium' : ''}
+                    ${!isCtExpired(vehicule.date_prochain_ct) && !isCtExpiringSoon(vehicule.date_prochain_ct) ? 'text-gray-600' : ''}
                   `}>
-                    CT : {vehicule.date_ct ? new Date(vehicule.date_ct).toLocaleDateString('fr-FR') : 'Non renseigné'}
-                    {isCtExpired(vehicule.date_ct) && ' ⚠️ Expiré'}
-                    {isCtExpiringSoon(vehicule.date_ct) && ' ⚠️ < 30j'}
+                    CT : {vehicule.date_prochain_ct ? new Date(vehicule.date_prochain_ct).toLocaleDateString('fr-FR') : 'Non renseigné'}
+                    {isCtExpired(vehicule.date_prochain_ct) && ' ⚠️ Expiré'}
+                    {isCtExpiringSoon(vehicule.date_prochain_ct) && ' ⚠️ < 30j'}
                   </span>
                 </div>
                 {vehicule.techniciens && (
@@ -338,33 +338,31 @@ const VehiculesPage = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date mise en circulation</label>
                   <input
-                    type="number"
-                    value={formData.annee}
-                    onChange={(e) => setFormData({ ...formData, annee: parseInt(e.target.value) })}
-                    min="2000"
-                    max="2030"
+                    type="date"
+                    value={formData.date_mise_circulation}
+                    onChange={(e) => setFormData({ ...formData, date_mise_circulation: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kilométrage</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kilométrage actuel</label>
                   <input
                     type="number"
-                    value={formData.kilometrage}
-                    onChange={(e) => setFormData({ ...formData, kilometrage: parseInt(e.target.value) })}
+                    value={formData.km_actuel}
+                    onChange={(e) => setFormData({ ...formData, km_actuel: parseInt(e.target.value) })}
                     min="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date CT</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prochain contrôle technique</label>
                 <input
                   type="date"
-                  value={formData.date_ct}
-                  onChange={(e) => setFormData({ ...formData, date_ct: e.target.value })}
+                  value={formData.date_prochain_ct}
+                  onChange={(e) => setFormData({ ...formData, date_prochain_ct: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
                 />
               </div>

@@ -31,7 +31,6 @@ const OnboardingWizard = ({ onComplete, onClose }) => {
         .upsert({
           organisation_id: orgId,
           completed: true,
-          onboarding_complete: true,
           completed_at: new Date().toISOString()
         });
       
