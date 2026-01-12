@@ -23,8 +23,21 @@ const MainLayout = () => {
   const activeDomains = subscription?.domaines_actifs || orgSettings?.modules_actifs || [];
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/login');
+    try {
+      // Nettoyer localStorage
+      localStorage.removeItem('easy_prospect_data');
+      localStorage.removeItem('easy_prospect_id');
+      
+      // Déconnexion Supabase
+      await logout();
+      
+      // Redirection
+      navigate('/login');
+    } catch (error) {
+      console.error('Erreur déconnexion:', error);
+      // Forcer la redirection même en cas d'erreur
+      navigate('/login');
+    }
   };
 
   // Menu principal
@@ -146,6 +159,20 @@ const MainLayout = () => {
             <div className="mb-3">
               <p className="text-white font-medium">{userData.prenom} {userData.nom}</p>
               <p className="text-gray-500 text-sm truncate">{userData.email}</p>
+            </div>
+          )}
+          
+          {/* Section info modules - discrète */}
+          {!collapsed && activeDomains.length > 0 && (
+            <div className="mb-3 py-2 px-2 bg-gray-800/50 rounded text-xs text-gray-500">
+              <p className="truncate">
+                Modules: {activeDomains.slice(0, 3).join(', ')}{activeDomains.length > 3 ? '...' : ''}
+              </p>
+              {subscription?.nb_utilisateurs_max && (
+                <p className="mt-1">
+                  Utilisateurs: {subscription.nb_utilisateurs_max} max
+                </p>
+              )}
             </div>
           )}
           

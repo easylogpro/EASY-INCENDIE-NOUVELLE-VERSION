@@ -91,11 +91,11 @@ const RegisterPage = () => {
 
       // 3) Traçabilité: mettre à jour ou créer le prospect
       //    STRATÉGIE: 
-      //    - Si prospect_id en sessionStorage → UPDATE avec l'email
-      //    - Sinon → INSERT nouveau prospect
+      //    - Si prospect_id en localStorage → UPDATE avec l'email
+      //    - Sinon si données en localStorage → INSERT nouveau prospect
       try {
-        const prospectId = sessionStorage.getItem('prospect_id');
-        const storedData = sessionStorage.getItem('questionnaire_data');
+        const prospectId = localStorage.getItem('easy_prospect_id');
+        const storedData = localStorage.getItem('easy_prospect_data');
         
         if (prospectId) {
           // UPDATE le prospect existant avec l'email
@@ -109,51 +109,84 @@ const RegisterPage = () => {
           } else {
             console.log('✅ Prospect mis à jour avec email:', prospectId);
           }
-        } else if (requestSummary) {
-          // INSERT nouveau prospect (cas où sessionStorage perdu)
-          await supabase.from("demandes_prospects").insert({
-            email,
-            telephone: null,
-            domaines_demandes: requestSummary.domaines,
-            profil_demande: requestSummary.profil,
-            nb_utilisateurs: requestSummary.nb_utilisateurs,
-            tarif_calcule: requestSummary.tarif_final,
-            options_selectionnees: {
-              addons: requestSummary.options || [],
-              nb_sites: requestSummary.nb_sites,
-              logiciel_actuel: questionnaireData?.logicielActuel,
-              rapports_fournis: requestSummary.rapports_fournis || {},
-              tarif_base: requestSummary.tarif_base,
-              tarif_options: requestSummary.tarif_options,
-              tarif_total: requestSummary.tarif_total,
-              discount: pricingFromLanding?.discount,
-            },
-            source: "landing",
-            converti: false,
-          });
-          console.log('✅ Nouveau prospect créé');
+          
+          // Mettre à jour localStorage avec l'email
+          if (storedData) {
+            const parsed = JSON.parse(storedData);
+            if (parsed.prospectData) {
+              parsed.prospectData.email = email;
+              localStorage.setItem('easy_prospect_data', JSON.stringify(parsed));
+            }
+          }
         } else if (storedData) {
-          // Récupérer depuis sessionStorage si location.state perdu
+          // INSERT nouveau prospect depuis localStorage
           const parsed = JSON.parse(storedData);
-          await supabase.from("demandes_prospects").insert({
-            email,
-            telephone: null,
-            domaines_demandes: parsed.formData?.modulesInteresses || ['ssi'],
-            profil_demande: parsed.formData?.typeActivite || 'mainteneur',
-            nb_utilisateurs: parsed.formData?.nombreTechniciens || '1',
-            tarif_calcule: parsed.pricing?.finalPrice,
-            options_selectionnees: {
-              addons: parsed.pricing?.selectedAddons || [],
-              nb_sites: parsed.formData?.nombreSites,
-              tarif_base: parsed.pricing?.basePrice,
-              tarif_options: parsed.pricing?.addonsTotal,
-              tarif_total: parsed.pricing?.totalPrice,
-              discount: parsed.pricing?.discount,
-            },
-            source: "landing_restored",
-            converti: false,
-          });
-          console.log('✅ Prospect créé depuis sessionStorage');
+          const prospectData = parsed.prospectData || {};
+          
+          const { data: newProspect, error: insertError } = await supabase
+            .from('demandes_prospects')
+            .insert({
+              email,
+              telephone: null,
+              domaines_demandes: prospectData.domaines_demandes || parsed.formData?.modulesInteresses || ['ssi'],
+              profil_demande: prospectData.profil_demande || parsed.formData?.typeActivite || 'mainteneur',
+              nb_utilisateurs: prospectData.nb_utilisateurs || parsed.formData?.nombreTechniciens || '1',
+              tarif_calcule: prospectData.tarif_calcule || parsed.pricing?.finalPrice,
+              options_selectionnees: prospectData.options_selectionnees || {
+                addons: parsed.pricing?.selectedAddons || [],
+                nb_sites: parsed.formData?.nombreSites,
+                tarif_base: parsed.pricing?.basePrice,
+                tarif_options: parsed.pricing?.addonsTotal,
+                tarif_total: parsed.pricing?.totalPrice,
+                discount: parsed.pricing?.discount,
+              },
+              source: 'register_from_localstorage',
+              converti: false,
+            })
+            .select()
+            .single();
+          
+          if (insertError) {
+            console.error('Erreur INSERT prospect:', insertError);
+          } else if (newProspect?.id) {
+            localStorage.setItem('easy_prospect_id', newProspect.id);
+            // Mettre à jour localStorage
+            parsed.prospectId = newProspect.id;
+            if (parsed.prospectData) parsed.prospectData.email = email;
+            localStorage.setItem('easy_prospect_data', JSON.stringify(parsed));
+            console.log('✅ Nouveau prospect créé:', newProspect.id);
+          }
+        } else if (requestSummary) {
+          // INSERT depuis location.state (cas normal)
+          const { data: newProspect } = await supabase
+            .from("demandes_prospects")
+            .insert({
+              email,
+              telephone: null,
+              domaines_demandes: requestSummary.domaines,
+              profil_demande: requestSummary.profil,
+              nb_utilisateurs: requestSummary.nb_utilisateurs,
+              tarif_calcule: requestSummary.tarif_final,
+              options_selectionnees: {
+                addons: requestSummary.options || [],
+                nb_sites: requestSummary.nb_sites,
+                logiciel_actuel: questionnaireData?.logicielActuel,
+                rapports_fournis: requestSummary.rapports_fournis || {},
+                tarif_base: requestSummary.tarif_base,
+                tarif_options: requestSummary.tarif_options,
+                tarif_total: requestSummary.tarif_total,
+                discount: pricingFromLanding?.discount,
+              },
+              source: "landing",
+              converti: false,
+            })
+            .select()
+            .single();
+          
+          if (newProspect?.id) {
+            localStorage.setItem('easy_prospect_id', newProspect.id);
+            console.log('✅ Nouveau prospect créé:', newProspect.id);
+          }
         } else {
           // Aucune donnée - créer un prospect minimal
           await supabase.from("demandes_prospects").insert({

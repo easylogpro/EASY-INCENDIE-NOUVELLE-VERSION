@@ -55,14 +55,48 @@ const SubscriptionPage = () => {
   ];
 
   // ============================================================
-  // CHARGEMENT DES DONNÉES PROSPECT (depuis BDD ou location.state)
+  // CHARGEMENT DES DONNÉES PROSPECT (localStorage > BDD > location.state)
+  // localStorage persiste entre onglets, c'est la SOURCE DE VÉRITÉ
   // ============================================================
   useEffect(() => {
     const loadProspectData = async () => {
       setLoadingProspect(true);
       
       try {
-        // 1) Essayer location.state d'abord
+        // 1) PRIORITÉ 1: localStorage (persiste même après callback email)
+        const storedData = localStorage.getItem('easy_prospect_data');
+        if (storedData) {
+          try {
+            const parsed = JSON.parse(storedData);
+            console.log('📦 Données prospect depuis localStorage:', parsed);
+            
+            // Vérifier que les données sont valides (pas trop vieilles)
+            const ageMs = Date.now() - (parsed.timestamp || 0);
+            const ageHours = ageMs / (1000 * 60 * 60);
+            
+            if (ageHours < 24 && parsed.prospectData) {
+              // Données valides (< 24h)
+              setProspectData(parsed.prospectData);
+              
+              // Restaurer les addons sélectionnés
+              const addons = parsed.prospectData.options_selectionnees?.addons || 
+                            parsed.pricing?.selectedAddons || [];
+              setSelectedAddons(addons);
+              
+              console.log('✅ Données chargées depuis localStorage');
+              console.log('   Domaines:', parsed.prospectData.domaines_demandes);
+              console.log('   Profil:', parsed.prospectData.profil_demande);
+              console.log('   Techniciens:', parsed.prospectData.nb_utilisateurs);
+              
+              setLoadingProspect(false);
+              return;
+            }
+          } catch (e) {
+            console.error('Erreur parsing localStorage:', e);
+          }
+        }
+
+        // 2) PRIORITÉ 2: location.state (si navigation directe)
         const stateRequest = location.state?.request || location.state?.demoRequest;
         
         if (stateRequest && stateRequest.domaines_demandes?.length > 0) {
@@ -77,7 +111,7 @@ const SubscriptionPage = () => {
           return;
         }
 
-        // 2) Sinon charger depuis la BDD par email
+        // 3) PRIORITÉ 3: Charger depuis la BDD par email
         if (user?.email) {
           console.log('🔍 Chargement prospect depuis BDD pour:', user.email);
           
@@ -104,37 +138,49 @@ const SubscriptionPage = () => {
           }
         }
 
-        // 3) Essayer sessionStorage en dernier recours
-        const storedData = sessionStorage.getItem('questionnaire_data');
-        if (storedData) {
-          console.log('📦 Données prospect depuis sessionStorage');
-          const parsed = JSON.parse(storedData);
-          setProspectData({
-            domaines_demandes: parsed.formData?.modulesInteresses || ['ssi'],
-            profil_demande: parsed.formData?.typeActivite || 'mainteneur',
-            nb_utilisateurs: parsed.formData?.nombreTechniciens || '1',
-            tarif_calcule: parsed.pricing?.finalPrice,
-            options_selectionnees: {
-              addons: parsed.pricing?.selectedAddons || [],
-              tarif_base: parsed.pricing?.basePrice,
-              tarif_options: parsed.pricing?.addonsTotal,
-              tarif_total: parsed.pricing?.totalPrice,
-              discount: parsed.pricing?.discount
-            }
-          });
-          setSelectedAddons(parsed.pricing?.selectedAddons || []);
-        } else {
-          // 4) Valeurs par défaut si rien trouvé
-          console.log('⚠️ Aucune donnée prospect, utilisation des valeurs par défaut');
-          setProspectData({
-            domaines_demandes: ['ssi'],
-            profil_demande: 'mainteneur',
-            nb_utilisateurs: '1'
-          });
+        // 4) PRIORITÉ 4: sessionStorage (ancien backup)
+        const sessionData = sessionStorage.getItem('questionnaire_data');
+        if (sessionData) {
+          try {
+            console.log('📦 Données prospect depuis sessionStorage (fallback)');
+            const parsed = JSON.parse(sessionData);
+            setProspectData({
+              domaines_demandes: parsed.formData?.modulesInteresses || ['ssi'],
+              profil_demande: parsed.formData?.typeActivite || 'mainteneur',
+              nb_utilisateurs: parsed.formData?.nombreTechniciens || '1',
+              tarif_calcule: parsed.pricing?.finalPrice,
+              options_selectionnees: {
+                addons: parsed.pricing?.selectedAddons || [],
+                tarif_base: parsed.pricing?.basePrice,
+                tarif_options: parsed.pricing?.addonsTotal,
+                tarif_total: parsed.pricing?.totalPrice,
+                discount: parsed.pricing?.discount
+              }
+            });
+            setSelectedAddons(parsed.pricing?.selectedAddons || []);
+            setLoadingProspect(false);
+            return;
+          } catch (e) {
+            console.error('Erreur parsing sessionStorage:', e);
+          }
         }
+        
+        // 5) PRIORITÉ 5: Valeurs par défaut si RIEN trouvé
+        console.log('⚠️ Aucune donnée prospect trouvée, utilisation des valeurs par défaut');
+        setProspectData({
+          domaines_demandes: ['ssi'],
+          profil_demande: 'mainteneur',
+          nb_utilisateurs: '1'
+        });
         
       } catch (err) {
         console.error('Erreur loadProspectData:', err);
+        // Valeurs par défaut en cas d'erreur
+        setProspectData({
+          domaines_demandes: ['ssi'],
+          profil_demande: 'mainteneur',
+          nb_utilisateurs: '1'
+        });
       }
       
       setLoadingProspect(false);
@@ -225,22 +271,65 @@ const SubscriptionPage = () => {
     setError('');
 
     try {
+      // ========================================
+      // VÉRIFICATION CRITIQUE : Données présentes ?
+      // ========================================
+      if (!prospectData || !prospectData.domaines_demandes || prospectData.domaines_demandes.length === 0) {
+        console.error('❌ ERREUR: prospectData manquant ou vide!');
+        console.log('prospectData actuel:', prospectData);
+        
+        // Tenter de recharger depuis localStorage
+        const storedData = localStorage.getItem('easy_prospect_data');
+        if (storedData) {
+          const parsed = JSON.parse(storedData);
+          console.log('📦 Tentative récupération localStorage:', parsed);
+          if (parsed.prospectData?.domaines_demandes?.length > 0) {
+            setProspectData(parsed.prospectData);
+            setError('Données récupérées. Veuillez réessayer.');
+            setLoading(false);
+            return;
+          }
+        }
+        
+        throw new Error('Vos sélections ont été perdues. Veuillez refaire le questionnaire.');
+      }
+
       console.log('🚀 Création abonnement via RPC...');
-      console.log('📋 ProspectData:', prospectData);
+      console.log('📋 ProspectData COMPLET:', JSON.stringify(prospectData, null, 2));
+      console.log('   - Domaines:', prospectData.domaines_demandes);
+      console.log('   - Profil:', prospectData.profil_demande);
+      console.log('   - Nb utilisateurs:', prospectData.nb_utilisateurs);
       console.log('💰 Pricing:', pricing);
       console.log('🔧 Addons:', selectedAddons);
 
-      // Préparer les domaines
+      // Préparer les domaines (convertir en majuscules pour la BDD)
       const domainesMap = {
         'ssi': 'SSI', 'dsf': 'DSF', 'desenfumage': 'DSF',
         'compartimentage': 'CMP', 'baes': 'BAES',
         'extincteurs': 'EXT', 'ria': 'RIA', 'colonnes_seches': 'COLSEC'
       };
       
-      const rawDomaines = prospectData?.domaines_demandes || ['ssi'];
+      const rawDomaines = prospectData.domaines_demandes;
       const domaines = rawDomaines.map(d => domainesMap[d?.toLowerCase()] || d?.toUpperCase() || 'SSI');
       
-      const nbUtilisateurs = parseInt(prospectData?.nb_utilisateurs || '1') || 1;
+      // Parser le nombre d'utilisateurs (peut être "2-5" → prendre le max)
+      let nbUtilisateurs = 1;
+      const nbStr = prospectData.nb_utilisateurs || '1';
+      if (nbStr.includes('-')) {
+        // Format "2-5" → prendre le max (5)
+        const parts = nbStr.split('-');
+        nbUtilisateurs = parseInt(parts[1]) || parseInt(parts[0]) || 1;
+      } else if (nbStr.includes('+')) {
+        // Format "11+" → prendre la valeur
+        nbUtilisateurs = parseInt(nbStr) || 25;
+      } else {
+        nbUtilisateurs = parseInt(nbStr) || 1;
+      }
+
+      console.log('📤 Données envoyées à RPC:');
+      console.log('   - domaines:', domaines);
+      console.log('   - nbUtilisateurs:', nbUtilisateurs);
+      console.log('   - prix:', pricing.totalPrice);
 
       // ========================================
       // APPEL DE LA FONCTION RPC (bypass RLS)
@@ -250,13 +339,27 @@ const SubscriptionPage = () => {
         p_nb_utilisateurs: nbUtilisateurs,
         p_prix_mensuel: pricing.totalPrice,
         p_options: {
+          // Options payantes (modules additionnels)
           addons: selectedAddons,
+          module_ia: selectedAddons.includes('ia'),
+          module_veille: selectedAddons.includes('veille_reglementaire'),
+          module_export_compta: selectedAddons.includes('export_compta'),
+          
+          // Infos questionnaire complètes
+          profil: prospectData.profil_demande,
+          nb_sites: prospectData.options_selectionnees?.nb_sites || prospectData.nb_sites,
+          logiciel_actuel: prospectData.options_selectionnees?.logiciel_actuel || prospectData.logiciel_actuel,
+          
+          // Infos tarification
           prix_base: pricing.basePrice,
           prix_options: pricing.addonsTotal,
           remise_premier_mois: pricing.discount,
           premier_mois_remise: true,
           payment_method: 'card',
-          profil: prospectData?.profil_demande
+          
+          // Données originales pour traçabilité
+          domaines_originaux: rawDomaines,
+          nb_utilisateurs_original: prospectData.nb_utilisateurs
         }
       });
 
@@ -272,6 +375,8 @@ const SubscriptionPage = () => {
       }
 
       console.log('✅ Abonnement créé avec succès!');
+      console.log('   Modules activés:', domaines);
+      console.log('   Utilisateurs max:', nbUtilisateurs);
 
       // ========================================
       // TERMINER LA SESSION DÉMO (appel direct)
@@ -285,9 +390,12 @@ const SubscriptionPage = () => {
         }
       }
 
-      // Nettoyer sessionStorage
+      // Nettoyer TOUT le storage
       sessionStorage.removeItem('prospect_id');
       sessionStorage.removeItem('questionnaire_data');
+      localStorage.removeItem('easy_prospect_data');
+      localStorage.removeItem('easy_prospect_id');
+      console.log('🧹 Storage nettoyé');
 
       // Rafraîchir les données
       if (refreshSubscription) await refreshSubscription();
@@ -297,7 +405,9 @@ const SubscriptionPage = () => {
       navigate('/dashboard', { 
         state: { 
           subscriptionSuccess: true, 
-          firstMonth: true 
+          firstMonth: true,
+          modulesActives: domaines,
+          nbUtilisateurs: nbUtilisateurs
         },
         replace: true
       });
@@ -440,8 +550,57 @@ const SubscriptionPage = () => {
                 </h2>
 
                 <div className="space-y-6">
+                  {/* RÉCAPITULATIF DE CE QUI VA ÊTRE ACTIVÉ */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-blue-800 font-semibold mb-3">Ce qui va être activé :</p>
+                    
+                    <div className="space-y-2 text-sm">
+                      {/* Modules */}
+                      <div className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-medium">Modules : </span>
+                          <span className="text-blue-700">
+                            {(prospectData?.domaines_demandes || ['SSI']).map(d => 
+                              DOMAIN_LABELS[d] || d?.toUpperCase()
+                            ).join(', ')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Utilisateurs */}
+                      <div className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-medium">Utilisateurs max : </span>
+                          <span className="text-blue-700">
+                            {(() => {
+                              const nb = prospectData?.nb_utilisateurs || '1';
+                              if (nb.includes('-')) {
+                                const parts = nb.split('-');
+                                return `${parts[1]} utilisateurs`;
+                              }
+                              return `${nb} utilisateur${parseInt(nb) > 1 ? 's' : ''}`;
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Prix */}
+                      <div className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-medium">Prix : </span>
+                          <span className="text-blue-700">
+                            {pricing.finalPrice}€ ce mois (puis {pricing.totalPrice}€/mois)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-800 font-medium">Prêt à activer votre abonnement</p>
+                    <p className="text-green-800 font-medium">✅ Prêt à activer votre abonnement</p>
                     <p className="text-green-700 text-sm mt-1">
                       Votre abonnement sera activé immédiatement après confirmation.
                     </p>
@@ -493,6 +652,35 @@ const SubscriptionPage = () => {
               ) : (
                 <div className="space-y-5">
                   
+                  {/* ⚠️ ALERTE SI DONNÉES PAR DÉFAUT */}
+                  {(!prospectData?.domaines_demandes || 
+                    prospectData.domaines_demandes.length === 0 ||
+                    (prospectData.domaines_demandes.length === 1 && 
+                     prospectData.domaines_demandes[0]?.toLowerCase() === 'ssi' && 
+                     !prospectData.profil_demande)) && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-800">
+                            Vos sélections n'ont pas été retrouvées
+                          </p>
+                          <p className="text-xs text-amber-700 mt-1">
+                            Les modules affichés sont des valeurs par défaut. 
+                            Pour activer les bons modules, veuillez refaire le questionnaire.
+                          </p>
+                          <button
+                            onClick={() => navigate('/')}
+                            className="mt-2 text-sm text-amber-700 hover:text-amber-900 underline flex items-center gap-1"
+                          >
+                            <ArrowLeft className="w-3 h-3" />
+                            Retour au questionnaire
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* PROFIL */}
                   <div className="pb-4 border-b">
                     <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Profil</p>
@@ -529,16 +717,45 @@ const SubscriptionPage = () => {
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-blue-600" />
                       <span className="font-medium">
-                        {prospectData?.nb_utilisateurs === '1' && '1 utilisateur'}
-                        {prospectData?.nb_utilisateurs === '2-5' && '2 à 5 utilisateurs'}
-                        {prospectData?.nb_utilisateurs === '6-10' && '6 à 10 utilisateurs'}
-                        {prospectData?.nb_utilisateurs === '11-25' && '11 à 25 utilisateurs'}
-                        {!prospectData?.nb_utilisateurs && '1 utilisateur'}
+                        {(() => {
+                          const nb = prospectData?.nb_utilisateurs;
+                          if (!nb) return '1 utilisateur';
+                          if (nb === '1' || nb === 1) return '1 utilisateur';
+                          if (nb === '2-5') return '2 à 5 utilisateurs';
+                          if (nb === '6-10') return '6 à 10 utilisateurs';
+                          if (nb === '11-25') return '11 à 25 utilisateurs';
+                          // Si c'est un nombre directement
+                          const parsed = parseInt(nb);
+                          if (!isNaN(parsed)) {
+                            return `${parsed} utilisateur${parsed > 1 ? 's' : ''}`;
+                          }
+                          // Fallback : afficher la valeur brute
+                          return `${nb} utilisateur(s)`;
+                        })()}
                       </span>
                     </div>
                   </div>
 
-                  {/* OPTIONS ADDITIONNELLES */}
+                  {/* NOMBRE DE SITES */}
+                  <div className="pb-4 border-b">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Sites gérés</p>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-purple-600" />
+                      <span className="font-medium">
+                        {(() => {
+                          const sites = prospectData?.options_selectionnees?.nb_sites || prospectData?.nb_sites;
+                          if (!sites) return 'Non renseigné';
+                          if (sites === '1-10') return '1 à 10 sites';
+                          if (sites === '11-50') return '11 à 50 sites';
+                          if (sites === '51-100') return '51 à 100 sites';
+                          if (sites === '100+') return 'Plus de 100 sites';
+                          return sites;
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* OPTIONS ADDITIONNELLES (MODULES PAYANTS) */}
                   <div className="pb-4 border-b">
                     <h4 className="text-xs text-gray-500 uppercase tracking-wide mb-2">Options</h4>
                     <div className="space-y-2">

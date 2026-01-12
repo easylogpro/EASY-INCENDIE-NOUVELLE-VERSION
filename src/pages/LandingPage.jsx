@@ -200,33 +200,46 @@ const LandingPage = () => {
 
   // ============================================================
   // NAVIGATION VERS INSCRIPTION AVEC DONNÉES
-  // INSERT EN BDD IMMÉDIATEMENT (preuve + activation modules)
+  // STOCKAGE EN LOCALSTORAGE (persiste entre onglets) + INSERT BDD
   // ============================================================
   const handleStartRegistration = async () => {
-    try {
-      // 1) Préparer les données du prospect
-      const prospectData = {
-        email: null, // Sera renseigné à l'inscription
-        telephone: null,
-        domaines_demandes: formData.modulesInteresses || ['ssi'],
-        profil_demande: formData.typeActivite || 'mainteneur',
-        nb_utilisateurs: formData.nombreTechniciens || '1',
-        tarif_calcule: pricing.finalPrice,
-        options_selectionnees: {
-          addons: selectedAddons,
-          nb_sites: formData.nombreSites,
-          logiciel_actuel: formData.logicielActuel,
-          tarif_base: pricing.basePrice,
-          tarif_options: pricing.addonsTotal,
-          tarif_total: pricing.totalPrice,
-          discount: pricing.discount,
-          rapports_fournis: availableReports
-        },
-        source: 'questionnaire_landing',
-        converti: false
-      };
+    // 1) Préparer les données du prospect
+    const prospectData = {
+      email: null, // Sera renseigné à l'inscription
+      telephone: null,
+      domaines_demandes: formData.modulesInteresses || ['ssi'],
+      profil_demande: formData.typeActivite || 'mainteneur',
+      nb_utilisateurs: formData.nombreTechniciens || '1',
+      tarif_calcule: pricing.finalPrice,
+      options_selectionnees: {
+        addons: selectedAddons,
+        nb_sites: formData.nombreSites,
+        logiciel_actuel: formData.logicielActuel,
+        tarif_base: pricing.basePrice,
+        tarif_options: pricing.addonsTotal,
+        tarif_total: pricing.totalPrice,
+        discount: pricing.discount,
+        rapports_fournis: availableReports
+      },
+      source: 'questionnaire_landing',
+      converti: false
+    };
 
-      // 2) INSERT en BDD (preuve de la demande)
+    // 2) IMPORTANT: Stocker en localStorage AVANT tout (persiste entre onglets)
+    // C'est la SOURCE DE VÉRITÉ si la BDD échoue
+    const dataToStore = {
+      formData,
+      pricing: { ...pricing, selectedAddons },
+      availableReports,
+      prospectData,
+      timestamp: Date.now()
+    };
+    
+    localStorage.setItem('easy_prospect_data', JSON.stringify(dataToStore));
+    console.log('💾 Données sauvegardées en localStorage:', dataToStore);
+
+    // 3) Tenter INSERT en BDD (peut échouer si RLS mal configuré)
+    try {
       const { data: insertedProspect, error } = await supabase
         .from('demandes_prospects')
         .insert(prospectData)
@@ -234,30 +247,21 @@ const LandingPage = () => {
         .single();
 
       if (error) {
-        console.error('Erreur INSERT prospect:', error);
-        // On continue quand même vers inscription (non bloquant)
-      }
-
-      // 3) Stocker l'ID en sessionStorage pour le récupérer à l'inscription
-      if (insertedProspect?.id) {
-        sessionStorage.setItem('prospect_id', insertedProspect.id);
+        console.error('⚠️ INSERT prospect échoué (RLS?):', error.message);
+        console.log('📦 Pas grave, les données sont en localStorage');
+      } else if (insertedProspect?.id) {
+        // Mettre à jour localStorage avec l'ID
+        dataToStore.prospectId = insertedProspect.id;
+        localStorage.setItem('easy_prospect_data', JSON.stringify(dataToStore));
+        localStorage.setItem('easy_prospect_id', insertedProspect.id);
         console.log('✅ Prospect créé en BDD:', insertedProspect.id);
       }
-
-      // 4) Stocker aussi les données complètes en backup
-      sessionStorage.setItem('questionnaire_data', JSON.stringify({
-        formData,
-        pricing: { ...pricing, selectedAddons },
-        availableReports,
-        prospectId: insertedProspect?.id
-      }));
-
     } catch (err) {
-      console.error('Erreur handleStartRegistration:', err);
-      // On continue vers inscription même en cas d'erreur
+      console.error('❌ Erreur INSERT:', err);
+      // Les données sont en localStorage, on continue
     }
 
-    // 5) Naviguer vers inscription avec les données
+    // 4) Naviguer vers inscription avec les données
     navigate('/register', {
       state: {
         questionnaireData: formData,
