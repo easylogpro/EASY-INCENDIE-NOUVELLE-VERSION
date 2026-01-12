@@ -1,373 +1,655 @@
-// src/pages/SitesPage.jsx
-// Easy Sécurité - Gestion des sites
+// =============================================================================
+// EASY INCENDIE - SitesPage.jsx
+// CRUD Sites avec connexion Supabase
+// Champs BDD: id, organisation_id, client_id, technicien_id, code_site,
+//             nom (NOT NULL), adresse (NOT NULL), code_postal, ville,
+//             acces_instructions, contact_nom, contact_telephone, contact_email,
+//             type_erp, categorie_erp, effectif, latitude, longitude,
+//             domaines_actifs (text[]), notes, actif
+// =============================================================================
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect } from 'react';
 import { supabase } from '../config/supabase';
-import { Card, Button, Modal, Input, Select, Badge, EmptyState, Skeleton } from '../components/ui';
-import { 
-  MapPin, Plus, Search, Building2, Phone, Mail, Edit, Trash2, 
-  Eye, ChevronRight, Filter, LayoutGrid, List, AlertTriangle
-} from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-const SitesPage = () => {
-  const navigate = useNavigate();
+const DOMAINES = [
+  { code: 'SSI', label: 'SSI', icon: '🔥', color: 'red' },
+  { code: 'DSF', label: 'DSF', icon: '💨', color: 'blue' },
+  { code: 'CMP', label: 'CMP', icon: '🚪', color: 'purple' },
+  { code: 'BAES', label: 'BAES', icon: '🚨', color: 'yellow' },
+  { code: 'EXT', label: 'EXT', icon: '🧯', color: 'red' },
+  { code: 'RIA', label: 'RIA', icon: '💧', color: 'cyan' },
+  { code: 'COLSEC', label: 'COLSEC', icon: '📌', color: 'gray' },
+];
+
+const TYPES_ERP = ['J', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'PA', 'CTS', 'SG', 'PS', 'GA', 'OA', 'EF', 'REF'];
+
+export default function SitesPage() {
   const { orgId } = useAuth();
+  
+  // États
   const [sites, setSites] = useState([]);
   const [clients, setClients] = useState([]);
   const [techniciens, setTechniciens] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('cards');
-  const [modalMode, setModalMode] = useState(null);
-  const [selectedSite, setSelectedSite] = useState(null);
-  const [formData, setFormData] = useState({
+  const [showModal, setShowModal] = useState(false);
+  const [editingSite, setEditingSite] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterClient, setFilterClient] = useState('');
+  const [filterDomaine, setFilterDomaine] = useState('');
+  
+  // Formulaire
+  const [form, setForm] = useState({
     client_id: '',
     technicien_id: '',
+    code_site: '',
     nom: '',
     adresse: '',
     code_postal: '',
     ville: '',
-    type_erp: '',
-    categorie_erp: '',
+    acces_instructions: '',
     contact_nom: '',
     contact_telephone: '',
     contact_email: '',
-    acces_instructions: '',
-    domaines_actifs: []
+    type_erp: '',
+    categorie_erp: null,
+    effectif: null,
+    domaines_actifs: [],
+    notes: '',
+    actif: true
   });
 
-  const typesERP = ['J', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y'];
-  const domaines = [
-    { id: 'ssi', label: 'SSI' },
-    { id: 'dsf', label: 'Désenfumage' },
-    { id: 'baes', label: 'BAES' },
-    { id: 'extincteurs', label: 'Extincteurs' },
-    { id: 'ria', label: 'RIA' },
-    { id: 'compartimentage', label: 'Compartimentage' },
-    { id: 'colonnes_seches', label: 'Colonnes sèches' }
-  ];
-
+  // Charger données
   useEffect(() => {
-    loadData();
+    if (orgId) {
+      loadSites();
+      loadClients();
+      loadTechniciens();
+    }
   }, [orgId]);
 
-  const loadData = async () => {
-    if (!orgId) return;
+  const loadSites = async () => {
+    setLoading(true);
     try {
-      const [sitesRes, clientsRes, techniciensRes] = await Promise.all([
-        supabase
-          .from('sites')
-          .select('*, clients(raison_sociale), techniciens(nom, prenom)')
-          .eq('organisation_id', orgId)
-          .order('nom'),
-        supabase
-          .from('clients')
-          .select('id, raison_sociale')
-          .eq('organisation_id', orgId)
-          .order('raison_sociale'),
-        supabase
-          .from('techniciens')
-          .select('id, nom, prenom')
-          .eq('organisation_id', orgId)
-          .order('nom'),
-      ]);
-      setSites(sitesRes.data || []);
-      setClients(clientsRes.data || []);
-      setTechniciens(techniciensRes.data || []);
-    } catch (error) {
-      console.error('Erreur:', error);
+      const { data, error } = await supabase
+        .from('sites')
+        .select(`
+          *,
+          client:clients(raison_sociale),
+          technicien:techniciens(nom, prenom)
+        `)
+        .eq('organisation_id', orgId)
+        .order('nom');
+
+      if (error) throw error;
+      setSites(data || []);
+    } catch (err) {
+      console.error('Erreur chargement sites:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredSites = sites.filter(site =>
-    site.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    site.ville?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    site.clients?.raison_sociale?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const openCreateModal = () => {
-    setFormData({ client_id: '', technicien_id: '', nom: '', adresse: '', code_postal: '', ville: '', type_erp: '', categorie_erp: '', contact_nom: '', contact_telephone: '', contact_email: '', acces_instructions: '', domaines_actifs: [] });
-    setModalMode('create');
+  const loadClients = async () => {
+    const { data } = await supabase
+      .from('clients')
+      .select('id, raison_sociale')
+      .eq('organisation_id', orgId)
+      .eq('actif', true)
+      .order('raison_sociale');
+    setClients(data || []);
   };
 
-  const openEditModal = (site) => {
-    setSelectedSite(site);
-    setFormData({
+  const loadTechniciens = async () => {
+    const { data } = await supabase
+      .from('techniciens')
+      .select('id, nom, prenom')
+      .eq('organisation_id', orgId)
+      .eq('actif', true)
+      .order('nom');
+    setTechniciens(data || []);
+  };
+
+  // Générer code site auto
+  const generateCodeSite = async () => {
+    const { count } = await supabase
+      .from('sites')
+      .select('*', { count: 'exact', head: true })
+      .eq('organisation_id', orgId);
+    
+    return `SIT-${String((count || 0) + 1).padStart(3, '0')}`;
+  };
+
+  // Ouvrir modal création
+  const handleNew = async () => {
+    const code = await generateCodeSite();
+    setForm({
+      client_id: '',
+      technicien_id: '',
+      code_site: code,
+      nom: '',
+      adresse: '',
+      code_postal: '',
+      ville: '',
+      acces_instructions: '',
+      contact_nom: '',
+      contact_telephone: '',
+      contact_email: '',
+      type_erp: '',
+      categorie_erp: null,
+      effectif: null,
+      domaines_actifs: [],
+      notes: '',
+      actif: true
+    });
+    setEditingSite(null);
+    setShowModal(true);
+  };
+
+  // Ouvrir modal édition
+  const handleEdit = (site) => {
+    setForm({
       client_id: site.client_id || '',
       technicien_id: site.technicien_id || '',
+      code_site: site.code_site || '',
       nom: site.nom || '',
       adresse: site.adresse || '',
       code_postal: site.code_postal || '',
       ville: site.ville || '',
-      type_erp: site.type_erp || '',
-      categorie_erp: site.categorie_erp?.toString?.() || '',
+      acces_instructions: site.acces_instructions || '',
       contact_nom: site.contact_nom || '',
       contact_telephone: site.contact_telephone || '',
       contact_email: site.contact_email || '',
-      acces_instructions: site.acces_instructions || '',
-      domaines_actifs: site.domaines_actifs || []
+      type_erp: site.type_erp || '',
+      categorie_erp: site.categorie_erp || null,
+      effectif: site.effectif || null,
+      domaines_actifs: site.domaines_actifs || [],
+      notes: site.notes || '',
+      actif: site.actif !== false
     });
-    setModalMode('edit');
+    setEditingSite(site);
+    setShowModal(true);
   };
 
-  const handleSave = async () => {
-    try {
-      const payload = {
-        ...formData,
-        categorie_erp: formData.categorie_erp ? parseInt(formData.categorie_erp, 10) : null,
-      };
-
-      if (modalMode === 'create') {
-        await supabase.from('sites').insert({ ...payload, organisation_id: orgId });
-      } else {
-        await supabase.from('sites').update(payload).eq('id', selectedSite.id);
-      }
-      setModalMode(null);
-      loadData();
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
-  };
-
-  const handleDelete = async (site) => {
-    if (!confirm(`Supprimer le site "${site.nom}" ?`)) return;
-    try {
-      await supabase.from('sites').delete().eq('id', site.id);
-      loadData();
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
-  };
-
-  const toggleDomaine = (domaineId) => {
-    setFormData(prev => ({
+  // Toggle domaine
+  const toggleDomaine = (code) => {
+    setForm(prev => ({
       ...prev,
-      domaines_actifs: prev.domaines_actifs.includes(domaineId)
-        ? prev.domaines_actifs.filter(d => d !== domaineId)
-        : [...prev.domaines_actifs, domaineId]
+      domaines_actifs: prev.domaines_actifs.includes(code)
+        ? prev.domaines_actifs.filter(d => d !== code)
+        : [...prev.domaines_actifs, code]
     }));
   };
 
-  if (loading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton variant="title" className="w-48" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1,2,3,4,5,6].map(i => <Skeleton key={i} variant="card" />)}
-        </div>
-      </div>
-    );
-  }
+  // Sauvegarder
+  const handleSave = async () => {
+    if (!form.nom.trim()) {
+      alert('Le nom du site est obligatoire');
+      return;
+    }
+    if (!form.adresse.trim()) {
+      alert("L'adresse est obligatoire");
+      return;
+    }
+
+    try {
+      const siteData = {
+        ...form,
+        organisation_id: orgId,
+        client_id: form.client_id || null,
+        technicien_id: form.technicien_id || null,
+        categorie_erp: form.categorie_erp || null,
+        effectif: form.effectif || null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (editingSite) {
+        const { error } = await supabase
+          .from('sites')
+          .update(siteData)
+          .eq('id', editingSite.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('sites')
+          .insert([siteData]);
+        if (error) throw error;
+      }
+
+      setShowModal(false);
+      loadSites();
+    } catch (err) {
+      console.error('Erreur sauvegarde:', err);
+      alert('Erreur lors de la sauvegarde');
+    }
+  };
+
+  // Supprimer
+  const handleDelete = async (site) => {
+    if (!confirm(`Supprimer le site "${site.nom}" ?`)) return;
+    
+    try {
+      const { error } = await supabase
+        .from('sites')
+        .delete()
+        .eq('id', site.id);
+      if (error) throw error;
+      loadSites();
+    } catch (err) {
+      console.error('Erreur suppression:', err);
+      alert('Erreur lors de la suppression');
+    }
+  };
+
+  // Filtrer sites
+  const filteredSites = sites.filter(s => {
+    const matchSearch = !search || 
+      s.nom?.toLowerCase().includes(search.toLowerCase()) ||
+      s.code_site?.toLowerCase().includes(search.toLowerCase()) ||
+      s.ville?.toLowerCase().includes(search.toLowerCase());
+    const matchClient = !filterClient || s.client_id === filterClient;
+    const matchDomaine = !filterDomaine || s.domaines_actifs?.includes(filterDomaine);
+    return matchSearch && matchClient && matchDomaine;
+  });
+
+  // Stats
+  const statsERP = sites.filter(s => s.type_erp).length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sites</h1>
-          <p className="text-gray-500">{sites.length} site(s) enregistré(s)</p>
+          <h1 className="text-2xl font-bold text-gray-900">📍 Sites</h1>
+          <p className="text-gray-500">Gestion des sites d'intervention</p>
         </div>
-        <Button onClick={openCreateModal} icon={<Plus className="w-4 h-4" />}>
-          Nouveau site
-        </Button>
+        <button 
+          onClick={handleNew}
+          className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90"
+        >
+          ➕ Nouveau site
+        </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher un site..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 border">
+          <p className="text-2xl font-bold">{sites.length}</p>
+          <p className="text-gray-500 text-xs">Total sites</p>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p className="text-2xl font-bold text-green-700">{sites.filter(s => s.actif).length}</p>
+          <p className="text-green-600 text-xs">Actifs</p>
+        </div>
+        <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+          <p className="text-2xl font-bold text-purple-700">{statsERP}</p>
+          <p className="text-purple-600 text-xs">ERP</p>
+        </div>
+        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p className="text-2xl font-bold text-blue-700">{sites.filter(s => s.technicien_id).length}</p>
+          <p className="text-blue-600 text-xs">Affectés</p>
+        </div>
+      </div>
+
+      {/* Filtres */}
+      <div className="bg-white rounded-xl border p-4 mb-6">
+        <div className="flex flex-wrap gap-4">
+          <input 
+            type="text" 
+            placeholder="Rechercher..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-48"
           />
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode('cards')}
-            className={`p-2.5 rounded-lg ${viewMode === 'cards' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+          <select 
+            value={filterClient}
+            onChange={(e) => setFilterClient(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm"
           >
-            <LayoutGrid className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`p-2.5 rounded-lg ${viewMode === 'list' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+            <option value="">Tous les clients</option>
+            {clients.map(c => (
+              <option key={c.id} value={c.id}>{c.raison_sociale}</option>
+            ))}
+          </select>
+          <select 
+            value={filterDomaine}
+            onChange={(e) => setFilterDomaine(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm"
           >
-            <List className="w-5 h-5" />
-          </button>
+            <option value="">Tous les domaines</option>
+            {DOMAINES.map(d => (
+              <option key={d.code} value={d.code}>{d.icon} {d.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Content */}
-      {filteredSites.length === 0 ? (
-        <EmptyState
-          icon={<MapPin className="w-16 h-16" />}
-          title="Aucun site"
-          description="Créez votre premier site pour commencer"
-          action={<Button onClick={openCreateModal} icon={<Plus className="w-4 h-4" />}>Nouveau site</Button>}
-        />
-      ) : viewMode === 'cards' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSites.map(site => (
-            <Card key={site.id} padding="none" onClick={() => openEditModal(site)}>
-              <div className="h-1.5 bg-gradient-to-r from-green-500 to-emerald-500" />
-              <div className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-green-500/30">
-                      <MapPin className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{site.nom}</h3>
-                      <p className="text-sm text-gray-500">{site.clients?.raison_sociale}</p>
-                    </div>
-                  </div>
-                  {site.type_erp && (
-                    <Badge variant="info" size="sm">ERP {site.type_erp}</Badge>
-                  )}
-                </div>
-                
-                <div className="space-y-2 text-sm text-gray-600 mb-3">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span>{site.adresse}, {site.code_postal} {site.ville}</span>
-                  </div>
-                  {site.contact_telephone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      <span>{site.contact_telephone}</span>
-                    </div>
-                  )}
-                </div>
-
-                {site.domaines_actifs?.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {site.domaines_actifs.map(d => (
-                      <Badge key={d} size="sm" variant="default">{d.toUpperCase()}</Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card padding="none">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+      {/* Tableau */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">Chargement...</div>
+        ) : filteredSites.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            {sites.length === 0 ? 'Aucun site. Créez votre premier site !' : 'Aucun résultat'}
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ERP</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Domaines</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="text-left p-4 font-medium text-gray-600">Site</th>
+                <th className="text-left p-4 font-medium text-gray-600">Client</th>
+                <th className="text-left p-4 font-medium text-gray-600">Adresse</th>
+                <th className="text-left p-4 font-medium text-gray-600">Type ERP</th>
+                <th className="text-left p-4 font-medium text-gray-600">Technicien</th>
+                <th className="text-left p-4 font-medium text-gray-600">Domaines</th>
+                <th className="text-left p-4 font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody>
               {filteredSites.map(site => (
-                <tr key={site.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{site.nom}</td>
-                  <td className="px-4 py-3 text-gray-600">{site.clients?.raison_sociale}</td>
-                  <td className="px-4 py-3 text-gray-600">{site.ville}</td>
-                  <td className="px-4 py-3">{site.type_erp && <Badge size="sm">ERP {site.type_erp}</Badge>}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">{site.domaines_actifs?.map(d => <Badge key={d} size="sm">{d}</Badge>)}</div>
+                <tr key={site.id} className="border-b hover:bg-gray-50">
+                  <td className="p-4">
+                    <p className="font-medium text-gray-900">{site.nom}</p>
+                    <p className="text-xs text-gray-500">{site.code_site}</p>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => openEditModal(site)} className="text-blue-600 hover:text-blue-800 mr-2">Modifier</button>
-                    <button onClick={() => handleDelete(site)} className="text-red-600 hover:text-red-800">Supprimer</button>
+                  <td className="p-4 text-gray-700">
+                    {site.client?.raison_sociale || '-'}
+                  </td>
+                  <td className="p-4">
+                    <p className="text-gray-900">{site.adresse}</p>
+                    <p className="text-xs text-gray-500">{site.code_postal} {site.ville}</p>
+                  </td>
+                  <td className="p-4">
+                    {site.type_erp ? (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                        {site.type_erp} {site.categorie_erp ? `- Cat ${site.categorie_erp}` : ''}
+                      </span>
+                    ) : '-'}
+                  </td>
+                  <td className="p-4 text-gray-700">
+                    {site.technicien 
+                      ? `${site.technicien.prenom} ${site.technicien.nom}`.slice(0, 15) 
+                      : '-'}
+                  </td>
+                  <td className="p-4">
+                    <div className="flex flex-wrap gap-1">
+                      {site.domaines_actifs?.map(d => {
+                        const dom = DOMAINES.find(x => x.code === d);
+                        return dom ? (
+                          <span 
+                            key={d} 
+                            className={`px-1.5 py-0.5 rounded text-xs bg-${dom.color}-100 text-${dom.color}-700`}
+                          >
+                            {dom.icon}
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <button 
+                      onClick={() => handleEdit(site)}
+                      className="text-blue-600 hover:text-blue-800 text-xs mr-2"
+                    >
+                      Modifier
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(site)}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Supprimer
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </Card>
-      )}
+        )}
+        
+        {filteredSites.length > 0 && (
+          <div className="p-4 border-t bg-gray-50">
+            <p className="text-sm text-gray-500">
+              Affichage {filteredSites.length} sur {sites.length} sites
+            </p>
+          </div>
+        )}
+      </div>
 
-      {/* Modal */}
-      <Modal
-        isOpen={!!modalMode}
-        onClose={() => setModalMode(null)}
-        title={modalMode === 'create' ? 'Nouveau site' : 'Modifier le site'}
-        size="lg"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setModalMode(null)}>Annuler</Button>
-            <Button onClick={handleSave}>{modalMode === 'create' ? 'Créer' : 'Enregistrer'}</Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Select
-            label="Client *"
-            value={formData.client_id}
-            onChange={(e) => setFormData({...formData, client_id: e.target.value})}
-            options={[{ value: '', label: 'Sélectionner un client' }, ...clients.map(c => ({ value: c.id, label: c.raison_sociale }))]}
-          />
-          <Select
-            label="Technicien attribué"
-            value={formData.technicien_id}
-            onChange={(e) => setFormData({ ...formData, technicien_id: e.target.value })}
-            options={[
-              { value: '', label: '-' },
-              ...techniciens.map((t) => ({ value: t.id, label: `${t.prenom || ''} ${t.nom || ''}`.trim() })),
-            ]}
-          />
-          <Input label="Nom du site *" value={formData.nom} onChange={(e) => setFormData({...formData, nom: e.target.value})} />
-          <Input label="Adresse" value={formData.adresse} onChange={(e) => setFormData({...formData, adresse: e.target.value})} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Code postal" value={formData.code_postal} onChange={(e) => setFormData({...formData, code_postal: e.target.value})} />
-            <Input label="Ville" value={formData.ville} onChange={(e) => setFormData({...formData, ville: e.target.value})} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Type ERP"
-              value={formData.type_erp}
-              onChange={(e) => setFormData({...formData, type_erp: e.target.value})}
-              options={[{ value: '', label: '-' }, ...typesERP.map(t => ({ value: t, label: `Type ${t}` }))]}
-            />
-            <Select
-              label="Catégorie"
-              value={formData.categorie_erp}
-              onChange={(e) => setFormData({...formData, categorie_erp: e.target.value})}
-              options={[{ value: '', label: '-' }, ...['1','2','3','4','5'].map(c => ({ value: c, label: `Catégorie ${c}` }))]}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Contact sur site" value={formData.contact_nom} onChange={(e) => setFormData({...formData, contact_nom: e.target.value})} />
-            <Input label="Téléphone contact" value={formData.contact_telephone} onChange={(e) => setFormData({...formData, contact_telephone: e.target.value})} />
-          </div>
-          <Input label="Email contact" type="email" value={formData.contact_email} onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })} />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Domaines actifs</label>
-            <div className="flex flex-wrap gap-2">
-              {domaines.map(d => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => toggleDomaine(d.id)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    formData.domaines_actifs.includes(d.id)
-                      ? 'bg-red-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+      {/* Modal Création/Édition */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b sticky top-0 bg-white">
+              <h2 className="text-xl font-bold">
+                {editingSite ? 'Modifier le site' : 'Nouveau site'}
+              </h2>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {/* Client et Code */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Client</label>
+                  <select 
+                    value={form.client_id}
+                    onChange={(e) => setForm({...form, client_id: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.raison_sociale}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Code site</label>
+                  <input 
+                    type="text" 
+                    value={form.code_site}
+                    onChange={(e) => setForm({...form, code_site: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Nom du site *</label>
+                <input 
+                  type="text" 
+                  value={form.nom}
+                  onChange={(e) => setForm({...form, nom: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="Ex: Carrefour City Guyancourt"
+                />
+              </div>
+
+              {/* Adresse */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">📍 Adresse</h3>
+                <input 
+                  type="text" 
+                  value={form.adresse}
+                  onChange={(e) => setForm({...form, adresse: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="Adresse *"
+                />
+                <div className="grid grid-cols-3 gap-3 mt-3">
+                  <input 
+                    type="text" 
+                    value={form.code_postal}
+                    onChange={(e) => setForm({...form, code_postal: e.target.value})}
+                    className="border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Code postal"
+                  />
+                  <input 
+                    type="text" 
+                    value={form.ville}
+                    onChange={(e) => setForm({...form, ville: e.target.value})}
+                    className="col-span-2 border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Ville"
+                  />
+                </div>
+                <textarea 
+                  value={form.acces_instructions}
+                  onChange={(e) => setForm({...form, acces_instructions: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 text-sm mt-3"
+                  rows={2}
+                  placeholder="Instructions d'accès (code porte, interphone...)"
+                />
+              </div>
+
+              {/* Contact sur site */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">👤 Contact sur site</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <input 
+                    type="text" 
+                    value={form.contact_nom}
+                    onChange={(e) => setForm({...form, contact_nom: e.target.value})}
+                    className="border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Nom"
+                  />
+                  <input 
+                    type="tel" 
+                    value={form.contact_telephone}
+                    onChange={(e) => setForm({...form, contact_telephone: e.target.value})}
+                    className="border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Téléphone"
+                  />
+                  <input 
+                    type="email" 
+                    value={form.contact_email}
+                    onChange={(e) => setForm({...form, contact_email: e.target.value})}
+                    className="border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Email"
+                  />
+                </div>
+              </div>
+
+              {/* Type ERP */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">🏢 Classification ERP</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Type ERP</label>
+                    <select 
+                      value={form.type_erp}
+                      onChange={(e) => setForm({...form, type_erp: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">-- Type --</option>
+                      {TYPES_ERP.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Catégorie</label>
+                    <select 
+                      value={form.categorie_erp || ''}
+                      onChange={(e) => setForm({...form, categorie_erp: e.target.value ? parseInt(e.target.value) : null})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">-- Cat --</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Effectif</label>
+                    <input 
+                      type="number" 
+                      value={form.effectif || ''}
+                      onChange={(e) => setForm({...form, effectif: e.target.value ? parseInt(e.target.value) : null})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      placeholder="Effectif"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Technicien */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">👷 Technicien attitré</h3>
+                <select 
+                  value={form.technicien_id}
+                  onChange={(e) => setForm({...form, technicien_id: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
                 >
-                  {d.label}
-                </button>
-              ))}
+                  <option value="">-- Aucun --</option>
+                  {techniciens.map(t => (
+                    <option key={t.id} value={t.id}>{t.prenom} {t.nom}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Domaines */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">🔥 Domaines actifs sur ce site</h3>
+                <div className="flex flex-wrap gap-2">
+                  {DOMAINES.map(d => (
+                    <button
+                      key={d.code}
+                      type="button"
+                      onClick={() => toggleDomaine(d.code)}
+                      className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                        form.domaines_actifs.includes(d.code)
+                          ? `border-${d.color}-500 bg-${d.color}-50 text-${d.color}-700`
+                          : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      {d.icon} {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="border-t pt-4 mt-4">
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea 
+                  value={form.notes}
+                  onChange={(e) => setForm({...form, notes: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  rows={2}
+                  placeholder="Notes internes..."
+                />
+              </div>
+
+              {/* Statut */}
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id="actif"
+                  checked={form.actif}
+                  onChange={(e) => setForm({...form, actif: e.target.checked})}
+                  className="rounded"
+                />
+                <label htmlFor="actif" className="text-sm">Site actif</label>
+              </div>
+            </div>
+
+            <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-white">
+              <button 
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+              >
+                {editingSite ? 'Enregistrer' : 'Créer le site'}
+              </button>
             </div>
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   );
-};
-
-export default SitesPage;
+}

@@ -4,7 +4,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../config/supabase';
 import { 
   Shield, Flame, FileText, BarChart3, Users, Building2, 
   CheckCircle2, ArrowRight, Star, ChevronDown, ChevronUp,
@@ -200,68 +199,8 @@ const LandingPage = () => {
 
   // ============================================================
   // NAVIGATION VERS INSCRIPTION AVEC DONNÉES
-  // STOCKAGE EN LOCALSTORAGE (persiste entre onglets) + INSERT BDD
   // ============================================================
-  const handleStartRegistration = async () => {
-    // 1) Préparer les données du prospect
-    const prospectData = {
-      email: null, // Sera renseigné à l'inscription
-      telephone: null,
-      domaines_demandes: formData.modulesInteresses || ['ssi'],
-      profil_demande: formData.typeActivite || 'mainteneur',
-      nb_utilisateurs: formData.nombreTechniciens || '1',
-      tarif_calcule: pricing.finalPrice,
-      options_selectionnees: {
-        addons: selectedAddons,
-        nb_sites: formData.nombreSites,
-        logiciel_actuel: formData.logicielActuel,
-        tarif_base: pricing.basePrice,
-        tarif_options: pricing.addonsTotal,
-        tarif_total: pricing.totalPrice,
-        discount: pricing.discount,
-        rapports_fournis: availableReports
-      },
-      source: 'questionnaire_landing',
-      converti: false
-    };
-
-    // 2) IMPORTANT: Stocker en localStorage AVANT tout (persiste entre onglets)
-    // C'est la SOURCE DE VÉRITÉ si la BDD échoue
-    const dataToStore = {
-      formData,
-      pricing: { ...pricing, selectedAddons },
-      availableReports,
-      prospectData,
-      timestamp: Date.now()
-    };
-    
-    localStorage.setItem('easy_prospect_data', JSON.stringify(dataToStore));
-    console.log('💾 Données sauvegardées en localStorage:', dataToStore);
-
-    // 3) Tenter INSERT en BDD (peut échouer si RLS mal configuré)
-    try {
-      const { data: insertedProspect, error } = await supabase
-        .from('demandes_prospects')
-        .insert(prospectData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('⚠️ INSERT prospect échoué (RLS?):', error.message);
-        console.log('📦 Pas grave, les données sont en localStorage');
-      } else if (insertedProspect?.id) {
-        // Mettre à jour localStorage avec l'ID
-        dataToStore.prospectId = insertedProspect.id;
-        localStorage.setItem('easy_prospect_data', JSON.stringify(dataToStore));
-        localStorage.setItem('easy_prospect_id', insertedProspect.id);
-        console.log('✅ Prospect créé en BDD:', insertedProspect.id);
-      }
-    } catch (err) {
-      console.error('❌ Erreur INSERT:', err);
-      // Les données sont en localStorage, on continue
-    }
-
-    // 4) Naviguer vers inscription avec les données
+  const handleStartRegistration = () => {
     navigate('/register', {
       state: {
         questionnaireData: formData,

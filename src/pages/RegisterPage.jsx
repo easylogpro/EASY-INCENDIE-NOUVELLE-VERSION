@@ -89,119 +89,37 @@ const RegisterPage = () => {
         throw new Error("Cet email est déjà utilisé");
       }
 
-      // 3) Traçabilité: mettre à jour ou créer le prospect
-      //    STRATÉGIE: 
-      //    - Si prospect_id en localStorage → UPDATE avec l'email
-      //    - Sinon si données en localStorage → INSERT nouveau prospect
+      // 3) Traçabilité: enregistrer la demande prospect (INSERT anonyme)
+      //    On le fait ici car c'est le premier moment où on connaît l'email.
       try {
-        const prospectId = localStorage.getItem('easy_prospect_id');
-        const storedData = localStorage.getItem('easy_prospect_data');
-        
-        if (prospectId) {
-          // UPDATE le prospect existant avec l'email
-          const { error: updateError } = await supabase
-            .from('demandes_prospects')
-            .update({ email })
-            .eq('id', prospectId);
-          
-          if (updateError) {
-            console.error('Erreur UPDATE prospect:', updateError);
-          } else {
-            console.log('✅ Prospect mis à jour avec email:', prospectId);
-          }
-          
-          // Mettre à jour localStorage avec l'email
-          if (storedData) {
-            const parsed = JSON.parse(storedData);
-            if (parsed.prospectData) {
-              parsed.prospectData.email = email;
-              localStorage.setItem('easy_prospect_data', JSON.stringify(parsed));
-            }
-          }
-        } else if (storedData) {
-          // INSERT nouveau prospect depuis localStorage
-          const parsed = JSON.parse(storedData);
-          const prospectData = parsed.prospectData || {};
-          
-          const { data: newProspect, error: insertError } = await supabase
-            .from('demandes_prospects')
-            .insert({
-              email,
-              telephone: null,
-              domaines_demandes: prospectData.domaines_demandes || parsed.formData?.modulesInteresses || ['ssi'],
-              profil_demande: prospectData.profil_demande || parsed.formData?.typeActivite || 'mainteneur',
-              nb_utilisateurs: prospectData.nb_utilisateurs || parsed.formData?.nombreTechniciens || '1',
-              tarif_calcule: prospectData.tarif_calcule || parsed.pricing?.finalPrice,
-              options_selectionnees: prospectData.options_selectionnees || {
-                addons: parsed.pricing?.selectedAddons || [],
-                nb_sites: parsed.formData?.nombreSites,
-                tarif_base: parsed.pricing?.basePrice,
-                tarif_options: parsed.pricing?.addonsTotal,
-                tarif_total: parsed.pricing?.totalPrice,
-                discount: parsed.pricing?.discount,
-              },
-              source: 'register_from_localstorage',
-              converti: false,
-            })
-            .select()
-            .single();
-          
-          if (insertError) {
-            console.error('Erreur INSERT prospect:', insertError);
-          } else if (newProspect?.id) {
-            localStorage.setItem('easy_prospect_id', newProspect.id);
-            // Mettre à jour localStorage
-            parsed.prospectId = newProspect.id;
-            if (parsed.prospectData) parsed.prospectData.email = email;
-            localStorage.setItem('easy_prospect_data', JSON.stringify(parsed));
-            console.log('✅ Nouveau prospect créé:', newProspect.id);
-          }
-        } else if (requestSummary) {
-          // INSERT depuis location.state (cas normal)
-          const { data: newProspect } = await supabase
-            .from("demandes_prospects")
-            .insert({
-              email,
-              telephone: null,
-              domaines_demandes: requestSummary.domaines,
-              profil_demande: requestSummary.profil,
-              nb_utilisateurs: requestSummary.nb_utilisateurs,
-              tarif_calcule: requestSummary.tarif_final,
-              options_selectionnees: {
-                addons: requestSummary.options || [],
-                nb_sites: requestSummary.nb_sites,
-                logiciel_actuel: questionnaireData?.logicielActuel,
-                rapports_fournis: requestSummary.rapports_fournis || {},
-                tarif_base: requestSummary.tarif_base,
-                tarif_options: requestSummary.tarif_options,
-                tarif_total: requestSummary.tarif_total,
-                discount: pricingFromLanding?.discount,
-              },
-              source: "landing",
-              converti: false,
-            })
-            .select()
-            .single();
-          
-          if (newProspect?.id) {
-            localStorage.setItem('easy_prospect_id', newProspect.id);
-            console.log('✅ Nouveau prospect créé:', newProspect.id);
-          }
-        } else {
-          // Aucune donnée - créer un prospect minimal
+        if (requestSummary) {
           await supabase.from("demandes_prospects").insert({
             email,
-            domaines_demandes: ['ssi'],
-            profil_demande: 'mainteneur',
-            nb_utilisateurs: '1',
-            source: "direct_register",
+            telephone: null,
+            domaines_demandes: requestSummary.domaines,
+            profil_demande: requestSummary.profil,
+            nb_utilisateurs: requestSummary.nb_utilisateurs,
+            tarif_calcule: requestSummary.tarif_final,
+
+            // On met en JSONB tout ce qui n'a pas de colonne dédiée
+            options_selectionnees: {
+              addons: requestSummary.options || [],
+              nb_sites: requestSummary.nb_sites,
+              logiciel_actuel: questionnaireData?.logicielActuel || questionnaireData?.logicielActuel,
+              rapports_fournis: requestSummary.rapports_fournis || {},
+              tarif_base: requestSummary.tarif_base,
+              tarif_options: requestSummary.tarif_options,
+              tarif_total: requestSummary.tarif_total,
+              discount: pricingFromLanding?.discount,
+            },
+
+            source: "landing",
             converti: false,
           });
-          console.log('✅ Prospect minimal créé');
         }
       } catch (prospectErr) {
-        // IMPORTANT: on ne bloque pas l'inscription si la traçabilité échoue
-        console.error("Erreur gestion prospect:", prospectErr);
+        // IMPORTANT: on ne bloque pas l'inscription si la traçabilité échoue (MVP)
+        console.error("Erreur insertion demandes_prospects:", prospectErr);
       }
 
       setSuccess(true);
