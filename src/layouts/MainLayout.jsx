@@ -9,14 +9,14 @@ import {
   LayoutDashboard, Building2, Users, MapPin, Calendar, 
   FileText, ClipboardList, Receipt, AlertTriangle, Settings,
   LogOut, ChevronLeft, ChevronRight, Flame, Shield,
-  Gauge, Zap, Menu, X, Wrench, UserCog
+  Gauge, Zap, Menu, X, Wrench, UserCog, Clock, CreditCard
 } from 'lucide-react';
 
 const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { userData, orgSettings, subscription, logout } = useAuth();
-  const { isDemoMode } = useDemo();
+  const { isDemoMode, demoExpired, timeRemaining, formatTimeRemaining, demoRequest } = useDemo();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -189,6 +189,67 @@ const MainLayout = () => {
 
         {/* Page content */}
         <main className="flex-1 overflow-auto">
+          {/* ======================================================= */}
+          {/* BANNIÈRE DÉMO - Affichée quand isDemoMode est actif    */}
+          {/* ======================================================= */}
+          {isDemoMode && !demoExpired && (
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-3 shadow-lg">
+              <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 bg-white/20 rounded-full px-3 py-1">
+                    <Clock className="w-4 h-4" />
+                    <span className="font-mono font-bold text-lg">{formatTimeRemaining()}</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Mode démonstration</p>
+                    <p className="text-sm opacity-90">Explorez toutes les fonctionnalités - Les rapports sont en lecture seule</p>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => navigate('/subscribe', { 
+                    state: { 
+                      fromDemo: true,
+                      request: demoRequest 
+                    }
+                  })}
+                  className="flex items-center gap-2 bg-white text-orange-600 px-6 py-2 rounded-lg font-bold hover:bg-orange-50 transition-colors shadow-lg"
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Activer mon compte
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* BANNIÈRE DÉMO EXPIRÉE */}
+          {demoExpired && (
+            <div className="bg-gradient-to-r from-red-600 to-rose-600 text-white px-4 py-4 shadow-lg">
+              <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-6 h-6" />
+                  <div>
+                    <p className="font-bold">Démonstration terminée</p>
+                    <p className="text-sm opacity-90">Activez votre compte pour continuer à utiliser Easy Sécurité</p>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => navigate('/subscribe', { 
+                    state: { 
+                      fromDemo: true,
+                      request: demoRequest 
+                    }
+                  })}
+                  className="flex items-center gap-2 bg-white text-red-600 px-6 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors shadow-lg animate-pulse"
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Activer maintenant
+                </button>
+              </div>
+            </div>
+          )}
+
           <Outlet />
         </main>
       </div>

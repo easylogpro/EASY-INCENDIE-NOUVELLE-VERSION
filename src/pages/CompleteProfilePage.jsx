@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useDemo } from '../contexts/DemoContext';
 import { supabase } from '../config/supabase';
 import {
   Flame, User, Building2, Phone, MapPin,
@@ -12,6 +13,7 @@ import {
 const CompleteProfilePage = () => {
   const navigate = useNavigate();
   const { user, refreshUserData } = useAuth();
+  const { startDemo } = useDemo();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -170,18 +172,27 @@ const CompleteProfilePage = () => {
       // Rafraîchir les données utilisateur
       await refreshUserData();
 
-      // Rediriger vers la démo avec les données du questionnaire
-      navigate('/demo', {
+      // Préparer les données pour la démo
+      const demoRequestData = {
+        organisation_id: rpcResult.organisation_id,
+        domaines_demandes: domaines,
+        profil_demande: prospectData?.profil_demande || 'mainteneur',
+        nb_utilisateurs: prospectData?.nb_utilisateurs || '1',
+        tarif_calcule: prospectData?.tarif_calcule,
+        options_selectionnees: prospectData?.options_selectionnees || {}
+      };
+
+      // Démarrer la session démo (3 minutes sur le VRAI dashboard)
+      await startDemo(demoRequestData);
+      console.log('🎬 Session démo démarrée');
+
+      // Rediriger vers le VRAI dashboard (pas une page fictive)
+      navigate('/dashboard', {
         state: {
-          request: {
-            organisation_id: rpcResult.organisation_id,
-            domaines_demandes: domaines,
-            profil_demande: prospectData?.profil_demande || 'mainteneur',
-            nb_utilisateurs: prospectData?.nb_utilisateurs || '1',
-            tarif_calcule: prospectData?.tarif_calcule,
-            options_selectionnees: prospectData?.options_selectionnees || {}
-          }
-        }
+          isDemo: true,
+          request: demoRequestData
+        },
+        replace: true
       });
 
     } catch (err) {

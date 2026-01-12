@@ -1,27 +1,28 @@
 // src/pages/SubscriptionPage.jsx
-// VERSION CORRIGÉE - Utilise RPC create_subscription (bypass RLS)
-// Garde les imports de pricing de l'autre IA
+// VERSION CORRIGÉE - Charge données depuis BDD + affiche tout + endDemo direct
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   CreditCard, CheckCircle2, Shield, Zap, Lock, Users, Building2,
-  Clock, AlertTriangle, ArrowRight, Loader2, Check, Flame
+  Clock, AlertTriangle, ArrowRight, Loader2, Check, Flame, ArrowLeft
 } from 'lucide-react';
 import { supabase } from '../config/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { computePricing } from '../utils/pricing';
-import { pricingData, availableAddons } from '../data/pricingData';
+import { useDemo } from '../contexts/DemoContext';
+import { calculatePrice, getAvailableReports, getDomainLabels } from '../utils/pricingAlgorithm';
 
 const SubscriptionPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userData, refreshSubscription, refreshUserData } = useAuth();
+  const { user, userData, refreshSubscription, refreshUserData } = useAuth();
+  const { isDemoMode, endDemo } = useDemo();
   
-  // Récupérer les données de la demande depuis la navigation ou la démo
-  const request = location.state?.request || location.state?.demoRequest || {};
-  const fromDemo = location.state?.fromDemo || false;
-  const demoEndCallback = location.state?.demoEndCallback;
+  // État pour les données prospect
+  const [prospectData, setProspectData] = useState(null);
+  const [loadingProspect, setLoadingProspect] = useState(true);
+  
+  const fromDemo = location.state?.fromDemo || isDemoMode;
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,21 +38,125 @@ const SubscriptionPage = () => {
     basePrice: 0,
     addonsTotal: 0,
     totalPrice: 0,
-    discount: 0
+    discount: 0,
+    finalPrice: 0
   });
   
-  const orgId = userData?.organisation_id;
   const mountedRef = useRef(true);
 
+  // Labels des domaines
+  const DOMAIN_LABELS = getDomainLabels();
+
+  // Options disponibles
+  const availableAddons = [
+    { id: 'ia', name: 'Assistant IA', price: 9, description: 'Aide à la rédaction des rapports' },
+    { id: 'veille_reglementaire', name: 'Veille réglementaire', price: 5, description: 'Alertes sur les évolutions normatives' },
+    { id: 'export_compta', name: 'Export comptable', price: 5, description: 'Export vers logiciels comptables' }
+  ];
+
+  // ============================================================
+  // CHARGEMENT DES DONNÉES PROSPECT (depuis BDD ou location.state)
+  // ============================================================
   useEffect(() => {
-    // Calculer le prix basé sur la demande
-    const calculatedPricing = computePricing({
-      domains: request.domaines || request.modulesInteresses || request.domaines_demandes || [],
-      users: request.nb_utilisateurs || request.nombreTechniciens || 1,
-      addons: selectedAddons
-    });
+    const loadProspectData = async () => {
+      setLoadingProspect(true);
+      
+      try {
+        // 1) Essayer location.state d'abord
+        const stateRequest = location.state?.request || location.state?.demoRequest;
+        
+        if (stateRequest && stateRequest.domaines_demandes?.length > 0) {
+          console.log('📋 Données prospect depuis location.state');
+          setProspectData(stateRequest);
+          
+          // Restaurer les addons sélectionnés
+          const addons = stateRequest.options_selectionnees?.addons || [];
+          setSelectedAddons(addons);
+          
+          setLoadingProspect(false);
+          return;
+        }
+
+        // 2) Sinon charger depuis la BDD par email
+        if (user?.email) {
+          console.log('🔍 Chargement prospect depuis BDD pour:', user.email);
+          
+          const { data, error } = await supabase
+            .from('demandes_prospects')
+            .select('*')
+            .eq('email', user.email)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            console.error('Erreur chargement prospect:', error);
+          } else if (data) {
+            console.log('✅ Prospect trouvé en BDD:', data.id);
+            setProspectData(data);
+            
+            // Restaurer les addons sélectionnés
+            const addons = data.options_selectionnees?.addons || [];
+            setSelectedAddons(addons);
+            
+            setLoadingProspect(false);
+            return;
+          }
+        }
+
+        // 3) Essayer sessionStorage en dernier recours
+        const storedData = sessionStorage.getItem('questionnaire_data');
+        if (storedData) {
+          console.log('📦 Données prospect depuis sessionStorage');
+          const parsed = JSON.parse(storedData);
+          setProspectData({
+            domaines_demandes: parsed.formData?.modulesInteresses || ['ssi'],
+            profil_demande: parsed.formData?.typeActivite || 'mainteneur',
+            nb_utilisateurs: parsed.formData?.nombreTechniciens || '1',
+            tarif_calcule: parsed.pricing?.finalPrice,
+            options_selectionnees: {
+              addons: parsed.pricing?.selectedAddons || [],
+              tarif_base: parsed.pricing?.basePrice,
+              tarif_options: parsed.pricing?.addonsTotal,
+              tarif_total: parsed.pricing?.totalPrice,
+              discount: parsed.pricing?.discount
+            }
+          });
+          setSelectedAddons(parsed.pricing?.selectedAddons || []);
+        } else {
+          // 4) Valeurs par défaut si rien trouvé
+          console.log('⚠️ Aucune donnée prospect, utilisation des valeurs par défaut');
+          setProspectData({
+            domaines_demandes: ['ssi'],
+            profil_demande: 'mainteneur',
+            nb_utilisateurs: '1'
+          });
+        }
+        
+      } catch (err) {
+        console.error('Erreur loadProspectData:', err);
+      }
+      
+      setLoadingProspect(false);
+    };
+
+    loadProspectData();
+  }, [user?.email, location.state]);
+
+  // ============================================================
+  // CALCUL DU PRIX QUAND LES DONNÉES CHANGENT
+  // ============================================================
+  useEffect(() => {
+    if (!prospectData) return;
+
+    const domains = prospectData.domaines_demandes || ['ssi'];
+    const userCount = prospectData.nb_utilisateurs || '1';
+    const profile = prospectData.profil_demande || 'mainteneur';
+
+    const calculatedPricing = calculatePrice(domains, userCount, selectedAddons, profile);
     setPricing(calculatedPricing);
-  }, [request, selectedAddons]);
+    
+  }, [prospectData, selectedAddons]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -113,7 +218,7 @@ const SubscriptionPage = () => {
   const formatPrice = (price) => `${price}€`;
 
   // ============================================================
-  // SOUMISSION - UTILISE RPC create_subscription
+  // SOUMISSION - UTILISE RPC create_subscription + endDemo direct
   // ============================================================
   const handleSubmit = async () => {
     setLoading(true);
@@ -121,7 +226,7 @@ const SubscriptionPage = () => {
 
     try {
       console.log('🚀 Création abonnement via RPC...');
-      console.log('📋 Request:', request);
+      console.log('📋 ProspectData:', prospectData);
       console.log('💰 Pricing:', pricing);
       console.log('🔧 Addons:', selectedAddons);
 
@@ -132,10 +237,10 @@ const SubscriptionPage = () => {
         'extincteurs': 'EXT', 'ria': 'RIA', 'colonnes_seches': 'COLSEC'
       };
       
-      const rawDomaines = request.domaines || request.modulesInteresses || request.domaines_demandes || ['SSI'];
+      const rawDomaines = prospectData?.domaines_demandes || ['ssi'];
       const domaines = rawDomaines.map(d => domainesMap[d?.toLowerCase()] || d?.toUpperCase() || 'SSI');
       
-      const nbUtilisateurs = parseInt(request.nb_utilisateurs || request.nombreTechniciens || '1') || 1;
+      const nbUtilisateurs = parseInt(prospectData?.nb_utilisateurs || '1') || 1;
 
       // ========================================
       // APPEL DE LA FONCTION RPC (bypass RLS)
@@ -150,7 +255,8 @@ const SubscriptionPage = () => {
           prix_options: pricing.addonsTotal,
           remise_premier_mois: pricing.discount,
           premier_mois_remise: true,
-          payment_method: 'card'
+          payment_method: 'card',
+          profil: prospectData?.profil_demande
         }
       });
 
@@ -167,14 +273,21 @@ const SubscriptionPage = () => {
 
       console.log('✅ Abonnement créé avec succès!');
 
-      // Si on vient de la démo, terminer la session de démo
-      if (fromDemo && demoEndCallback) {
+      // ========================================
+      // TERMINER LA SESSION DÉMO (appel direct)
+      // ========================================
+      if (fromDemo || isDemoMode) {
         try {
-          await demoEndCallback(true);
+          await endDemo(true); // converted = true
+          console.log('✅ Session démo terminée');
         } catch (e) {
-          console.warn('Erreur demoEndCallback:', e);
+          console.warn('Erreur endDemo:', e);
         }
       }
+
+      // Nettoyer sessionStorage
+      sessionStorage.removeItem('prospect_id');
+      sessionStorage.removeItem('questionnaire_data');
 
       // Rafraîchir les données
       if (refreshSubscription) await refreshSubscription();
@@ -365,76 +478,170 @@ const SubscriptionPage = () => {
             )}
           </div>
 
-          {/* Summary */}
+          {/* Summary - AFFICHAGE COMPLET DES SÉLECTIONS */}
           <div>
             <div className="bg-white rounded-xl shadow-sm p-6 sticky top-8">
-              <h3 className="text-lg font-semibold mb-4">Récapitulatif</h3>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                Votre sélection
+              </h3>
 
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Base</span>
-                  <span className="font-medium">{formatPrice(pricing.basePrice)}</span>
+              {loadingProspect ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                 </div>
-
-                {pricing.addonsTotal > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Options</span>
-                    <span className="font-medium">{formatPrice(pricing.addonsTotal)}</span>
+              ) : (
+                <div className="space-y-5">
+                  
+                  {/* PROFIL */}
+                  <div className="pb-4 border-b">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Profil</p>
+                    <p className="font-medium text-gray-900">
+                      {prospectData?.profil_demande === 'mainteneur' && '🔧 Mainteneur'}
+                      {prospectData?.profil_demande === 'installateur' && '⚡ Installateur'}
+                      {prospectData?.profil_demande === 'installateur_mainteneur' && '🔧⚡ Installateur + Mainteneur'}
+                      {prospectData?.profil_demande === 'artisan' && '🛠️ Artisan'}
+                      {prospectData?.profil_demande === 'sous_traitant' && '🤝 Sous-traitant'}
+                      {!prospectData?.profil_demande && '🔧 Mainteneur'}
+                    </p>
                   </div>
-                )}
 
-                {pricing.discount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Remise 1er mois</span>
-                    <span className="font-medium">-{formatPrice(pricing.discount)}</span>
-                  </div>
-                )}
-
-                <div className="border-t pt-4 flex justify-between">
-                  <span className="font-semibold">Total / mois</span>
-                  <span className="font-bold text-xl">{formatPrice(pricing.totalPrice)}</span>
-                </div>
-
-                <div className="pt-4 space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-blue-600" />
-                    Accès immédiat
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-blue-600" />
-                    Jusqu'à {request.nb_utilisateurs || request.nombreTechniciens || 1} utilisateurs
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-blue-600" />
-                    Sans engagement
-                  </div>
-                </div>
-              </div>
-
-              {/* Addons */}
-              <div className="mt-6">
-                <h4 className="font-semibold mb-3">Options</h4>
-                <div className="space-y-2">
-                  {availableAddons.map(addon => (
-                    <label key={addon.id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={selectedAddons.includes(addon.id)}
-                        onChange={() => toggleAddon(addon.id)}
-                        className="w-4 h-4"
-                      />
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">{addon.name}</span>
-                          <span className="text-sm text-gray-600">{formatPrice(addon.price)}</span>
+                  {/* DOMAINES SÉLECTIONNÉS */}
+                  <div className="pb-4 border-b">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+                      Domaines ({(prospectData?.domaines_demandes || []).length})
+                    </p>
+                    <div className="space-y-1">
+                      {(prospectData?.domaines_demandes || ['ssi']).map((domain, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-sm">
+                          <Check className="w-4 h-4 text-green-500" />
+                          <span className="text-gray-800">
+                            {DOMAIN_LABELS[domain] || domain?.toUpperCase() || 'SSI'}
+                          </span>
                         </div>
-                        <p className="text-xs text-gray-500">{addon.description}</p>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* UTILISATEURS */}
+                  <div className="pb-4 border-b">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Techniciens</p>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-blue-600" />
+                      <span className="font-medium">
+                        {prospectData?.nb_utilisateurs === '1' && '1 utilisateur'}
+                        {prospectData?.nb_utilisateurs === '2-5' && '2 à 5 utilisateurs'}
+                        {prospectData?.nb_utilisateurs === '6-10' && '6 à 10 utilisateurs'}
+                        {prospectData?.nb_utilisateurs === '11-25' && '11 à 25 utilisateurs'}
+                        {!prospectData?.nb_utilisateurs && '1 utilisateur'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* OPTIONS ADDITIONNELLES */}
+                  <div className="pb-4 border-b">
+                    <h4 className="text-xs text-gray-500 uppercase tracking-wide mb-2">Options</h4>
+                    <div className="space-y-2">
+                      {availableAddons.map(addon => (
+                        <label 
+                          key={addon.id} 
+                          className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
+                            selectedAddons.includes(addon.id) 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedAddons.includes(addon.id)}
+                            onChange={() => toggleAddon(addon.id)}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <div className="flex-1">
+                            <div className="flex justify-between">
+                              <span className="text-sm font-medium">{addon.name}</span>
+                              <span className="text-sm font-semibold text-blue-600">+{addon.price}€</span>
+                            </div>
+                            <p className="text-xs text-gray-500">{addon.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* RÉCAPITULATIF PRIX */}
+                  <div className="bg-gray-50 -mx-6 -mb-6 p-6 rounded-b-xl">
+                    <h4 className="text-xs text-gray-500 uppercase tracking-wide mb-3">Tarification</h4>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">
+                          Abonnement base ({pricing.domainCount || 1} domaine{(pricing.domainCount || 1) > 1 ? 's' : ''})
+                        </span>
+                        <span className="font-medium">{pricing.basePrice}€/mois</span>
                       </div>
-                    </label>
-                  ))}
+
+                      {selectedAddons.length > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">
+                            Options ({selectedAddons.length})
+                          </span>
+                          <span className="font-medium">+{pricing.addonsTotal}€/mois</span>
+                        </div>
+                      )}
+
+                      <div className="border-t pt-2 mt-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-700">Sous-total</span>
+                          <span className="font-medium">{pricing.totalPrice}€/mois</span>
+                        </div>
+                      </div>
+
+                      {pricing.discount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>🎁 Remise 1er mois (-10%)</span>
+                          <span className="font-medium">-{pricing.discount}€</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t mt-4 pt-4">
+                      <div className="flex justify-between items-baseline">
+                        <span className="font-semibold text-gray-900">1er mois</span>
+                        <div className="text-right">
+                          <span className="text-2xl font-bold text-gray-900">{pricing.finalPrice}€</span>
+                          <p className="text-xs text-gray-500">puis {pricing.totalPrice}€/mois</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t space-y-2 text-xs text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-green-500" />
+                        Accès immédiat après paiement
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-blue-500" />
+                        Sans engagement - Résiliable à tout moment
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-gray-400" />
+                        Paiement 100% sécurisé
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
+
+            {/* Bouton retour */}
+            <button
+              onClick={() => navigate(-1)}
+              className="mt-4 w-full flex items-center justify-center gap-2 text-gray-600 hover:text-gray-900 py-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Modifier mes choix
+            </button>
           </div>
         </div>
 

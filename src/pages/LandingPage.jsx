@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../config/supabase';
 import { 
   Shield, Flame, FileText, BarChart3, Users, Building2, 
   CheckCircle2, ArrowRight, Star, ChevronDown, ChevronUp,
@@ -199,8 +200,64 @@ const LandingPage = () => {
 
   // ============================================================
   // NAVIGATION VERS INSCRIPTION AVEC DONNÉES
+  // INSERT EN BDD IMMÉDIATEMENT (preuve + activation modules)
   // ============================================================
-  const handleStartRegistration = () => {
+  const handleStartRegistration = async () => {
+    try {
+      // 1) Préparer les données du prospect
+      const prospectData = {
+        email: null, // Sera renseigné à l'inscription
+        telephone: null,
+        domaines_demandes: formData.modulesInteresses || ['ssi'],
+        profil_demande: formData.typeActivite || 'mainteneur',
+        nb_utilisateurs: formData.nombreTechniciens || '1',
+        tarif_calcule: pricing.finalPrice,
+        options_selectionnees: {
+          addons: selectedAddons,
+          nb_sites: formData.nombreSites,
+          logiciel_actuel: formData.logicielActuel,
+          tarif_base: pricing.basePrice,
+          tarif_options: pricing.addonsTotal,
+          tarif_total: pricing.totalPrice,
+          discount: pricing.discount,
+          rapports_fournis: availableReports
+        },
+        source: 'questionnaire_landing',
+        converti: false
+      };
+
+      // 2) INSERT en BDD (preuve de la demande)
+      const { data: insertedProspect, error } = await supabase
+        .from('demandes_prospects')
+        .insert(prospectData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erreur INSERT prospect:', error);
+        // On continue quand même vers inscription (non bloquant)
+      }
+
+      // 3) Stocker l'ID en sessionStorage pour le récupérer à l'inscription
+      if (insertedProspect?.id) {
+        sessionStorage.setItem('prospect_id', insertedProspect.id);
+        console.log('✅ Prospect créé en BDD:', insertedProspect.id);
+      }
+
+      // 4) Stocker aussi les données complètes en backup
+      sessionStorage.setItem('questionnaire_data', JSON.stringify({
+        formData,
+        pricing: { ...pricing, selectedAddons },
+        availableReports,
+        prospectId: insertedProspect?.id
+      }));
+
+    } catch (err) {
+      console.error('Erreur handleStartRegistration:', err);
+      // On continue vers inscription même en cas d'erreur
+    }
+
+    // 5) Naviguer vers inscription avec les données
     navigate('/register', {
       state: {
         questionnaireData: formData,

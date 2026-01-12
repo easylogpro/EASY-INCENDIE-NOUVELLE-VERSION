@@ -89,10 +89,28 @@ const RegisterPage = () => {
         throw new Error("Cet email est déjà utilisé");
       }
 
-      // 3) Traçabilité: enregistrer la demande prospect (INSERT anonyme)
-      //    On le fait ici car c'est le premier moment où on connaît l'email.
+      // 3) Traçabilité: mettre à jour ou créer le prospect
+      //    STRATÉGIE: 
+      //    - Si prospect_id en sessionStorage → UPDATE avec l'email
+      //    - Sinon → INSERT nouveau prospect
       try {
-        if (requestSummary) {
+        const prospectId = sessionStorage.getItem('prospect_id');
+        const storedData = sessionStorage.getItem('questionnaire_data');
+        
+        if (prospectId) {
+          // UPDATE le prospect existant avec l'email
+          const { error: updateError } = await supabase
+            .from('demandes_prospects')
+            .update({ email })
+            .eq('id', prospectId);
+          
+          if (updateError) {
+            console.error('Erreur UPDATE prospect:', updateError);
+          } else {
+            console.log('✅ Prospect mis à jour avec email:', prospectId);
+          }
+        } else if (requestSummary) {
+          // INSERT nouveau prospect (cas où sessionStorage perdu)
           await supabase.from("demandes_prospects").insert({
             email,
             telephone: null,
@@ -100,26 +118,57 @@ const RegisterPage = () => {
             profil_demande: requestSummary.profil,
             nb_utilisateurs: requestSummary.nb_utilisateurs,
             tarif_calcule: requestSummary.tarif_final,
-
-            // On met en JSONB tout ce qui n'a pas de colonne dédiée
             options_selectionnees: {
               addons: requestSummary.options || [],
               nb_sites: requestSummary.nb_sites,
-              logiciel_actuel: questionnaireData?.logicielActuel || questionnaireData?.logicielActuel,
+              logiciel_actuel: questionnaireData?.logicielActuel,
               rapports_fournis: requestSummary.rapports_fournis || {},
               tarif_base: requestSummary.tarif_base,
               tarif_options: requestSummary.tarif_options,
               tarif_total: requestSummary.tarif_total,
               discount: pricingFromLanding?.discount,
             },
-
             source: "landing",
             converti: false,
           });
+          console.log('✅ Nouveau prospect créé');
+        } else if (storedData) {
+          // Récupérer depuis sessionStorage si location.state perdu
+          const parsed = JSON.parse(storedData);
+          await supabase.from("demandes_prospects").insert({
+            email,
+            telephone: null,
+            domaines_demandes: parsed.formData?.modulesInteresses || ['ssi'],
+            profil_demande: parsed.formData?.typeActivite || 'mainteneur',
+            nb_utilisateurs: parsed.formData?.nombreTechniciens || '1',
+            tarif_calcule: parsed.pricing?.finalPrice,
+            options_selectionnees: {
+              addons: parsed.pricing?.selectedAddons || [],
+              nb_sites: parsed.formData?.nombreSites,
+              tarif_base: parsed.pricing?.basePrice,
+              tarif_options: parsed.pricing?.addonsTotal,
+              tarif_total: parsed.pricing?.totalPrice,
+              discount: parsed.pricing?.discount,
+            },
+            source: "landing_restored",
+            converti: false,
+          });
+          console.log('✅ Prospect créé depuis sessionStorage');
+        } else {
+          // Aucune donnée - créer un prospect minimal
+          await supabase.from("demandes_prospects").insert({
+            email,
+            domaines_demandes: ['ssi'],
+            profil_demande: 'mainteneur',
+            nb_utilisateurs: '1',
+            source: "direct_register",
+            converti: false,
+          });
+          console.log('✅ Prospect minimal créé');
         }
       } catch (prospectErr) {
-        // IMPORTANT: on ne bloque pas l'inscription si la traçabilité échoue (MVP)
-        console.error("Erreur insertion demandes_prospects:", prospectErr);
+        // IMPORTANT: on ne bloque pas l'inscription si la traçabilité échoue
+        console.error("Erreur gestion prospect:", prospectErr);
       }
 
       setSuccess(true);
