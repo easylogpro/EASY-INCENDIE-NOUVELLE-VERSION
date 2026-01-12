@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Easy Sécurité - Aperçu Complet Toutes Pages</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .page-section { display: none; }
+    .page-section.active { display: block; }
+    .nav-link.active { background: #1e293b; color: white; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  
+  <!-- SIDEBAR NAVIGATION -->
+  <div class="fixed left-0 top-0 h-full w-64 bg-slate-900 text-white p-4 flex flex-col overflow-y-auto scrollbar-thin z-50">
+    <!-- Logo -->
+    <div class="flex items-center gap-2 mb-6">
+      <div class="w-10 h-10 bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 rounded-xl flex items-center justify-center font-black">ES</div>
+      <div>
+        <span class="font-bold">Easy</span>
+        <span class="font-bold text-orange-400"> Sécurité</span>
+      </div>
+    </div>
+    
+    <!-- Menu Navigation -->
+    <nav class="space-y-1 flex-1" id="mainNav">
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-2 px-3">Principal</p>
+      <a href="#" data-page="dashboard" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm active">
+        <span>📊</span> Dashboard
+      </a>
+      
+      <p class="text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2 px-3">Gestion</p>
+      <a href="#" data-page="clients" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>🏢</span> Clients
+      </a>
+      <a href="#" data-page="sites" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>📍</span> Sites
+      </a>
+      <a href="#" data-page="contrats" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>📋</span> Contrats
+      </a>
+      
+      <p class="text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2 px-3">Équipe</p>
+      <a href="#" data-page="techniciens" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>👷</span> Techniciens
+      </a>
+      <a href="#" data-page="vehicules" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>🚗</span> Véhicules
+      </a>
+      <a href="#" data-page="soustraitants" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>👥</span> Sous-traitants
+      </a>
+      <a href="#" data-page="astreintes" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>📞</span> Astreintes
+      </a>
+      
+      <p class="text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2 px-3">Interventions</p>
+      <a href="#" data-page="planning" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>📅</span> Planning
+      </a>
+      <a href="#" data-page="maintenances" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>🔧</span> Maintenances
+      </a>
+      <a href="#" data-page="sav" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>🚨</span> SAV
+      </a>
+      <a href="#" data-page="travaux" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>🏗️</span> Travaux
+      </a>
+      <a href="#" data-page="miseenservice" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>🎯</span> Mise en service
+      </a>
+      
+      <p class="text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2 px-3">Commercial</p>
+      <a href="#" data-page="devis" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>📝</span> Devis
+      </a>
+      <a href="#" data-page="factures" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>💰</span> Factures
+      </a>
+      
+      <p class="text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2 px-3">Suivi</p>
+      <a href="#" data-page="rapports" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>📄</span> Rapports
+      </a>
+      <a href="#" data-page="observations" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>📸</span> Observations
+      </a>
+      <a href="#" data-page="alertes" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>🔔</span> Alertes
+      </a>
+      
+      <p class="text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2 px-3">Système</p>
+      <a href="#" data-page="settings" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-800 text-sm">
+        <span>⚙️</span> Paramètres
+      </a>
+    </nav>
+    
+    <!-- User -->
+    <div class="mt-4 pt-4 border-t border-slate-700">
+      <div class="flex items-center gap-3 p-2 bg-slate-800 rounded-lg">
+        <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center font-bold text-sm">JD</div>
+        <div class="flex-1 min-w-0">
+          <p class="font-medium text-sm truncate">Jean Dupont</p>
+          <p class="text-xs text-gray-400">Admin</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- MAIN CONTENT -->
+  <div class="ml-64 p-6">
+    
+    <!-- ==================== PAGE: DASHBOARD ==================== -->
+    <div id="page-dashboard" class="page-section active">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p class="text-gray-500">Vue d'ensemble de votre activité</p>
+        </div>
+        <button class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">➕ Nouvelle intervention</button>
+      </div>
+      
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">24</p><p class="text-gray-500 text-xs">Clients</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">67</p><p class="text-gray-500 text-xs">Sites</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">8</p><p class="text-gray-500 text-xs">Techniciens</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">5</p><p class="text-gray-500 text-xs">Véhicules</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">45</p><p class="text-gray-500 text-xs">Contrats</p></div>
+        <div class="bg-red-50 rounded-xl p-4 border border-red-200"><p class="text-2xl font-bold text-red-700">7</p><p class="text-red-600 text-xs">Alertes</p></div>
+      </div>
+      
+      <!-- Modules -->
+      <div class="bg-white rounded-xl border p-4 mb-6">
+        <h2 class="font-bold text-gray-900 mb-4">🔥 Vos modules actifs</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+          <div class="flex flex-col items-center p-3 bg-red-50 rounded-xl border-2 border-red-200"><span class="text-2xl">🔥</span><span class="font-semibold text-sm">SSI</span></div>
+          <div class="flex flex-col items-center p-3 bg-blue-50 rounded-xl border-2 border-blue-200"><span class="text-2xl">💨</span><span class="font-semibold text-sm">DSF</span></div>
+          <div class="flex flex-col items-center p-3 bg-yellow-50 rounded-xl border-2 border-yellow-200"><span class="text-2xl">🚨</span><span class="font-semibold text-sm">BAES</span></div>
+          <div class="flex flex-col items-center p-3 bg-red-50 rounded-xl border-2 border-red-200"><span class="text-2xl">🧯</span><span class="font-semibold text-sm">EXT</span></div>
+          <div class="flex flex-col items-center p-3 bg-cyan-50 rounded-xl border-2 border-cyan-200"><span class="text-2xl">💧</span><span class="font-semibold text-sm">RIA</span></div>
+          <div class="flex flex-col items-center p-3 bg-gray-100 rounded-xl border-2 border-dashed opacity-50"><span class="text-2xl">🚪</span><span class="font-semibold text-sm text-gray-400">CMP</span></div>
+          <div class="flex flex-col items-center p-3 bg-gray-100 rounded-xl border-2 border-dashed opacity-50"><span class="text-2xl">🔌</span><span class="font-semibold text-sm text-gray-400">COLSEC</span></div>
+        </div>
+      </div>
+      
+      <!-- Planning + SAV -->
+      <div class="grid lg:grid-cols-2 gap-4 mb-6">
+        <div class="bg-white rounded-xl border p-4">
+          <h3 class="font-bold text-gray-900 mb-4">📅 Planning du jour</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"><span class="font-bold text-sm w-12">08:30</span><div class="flex-1"><p class="font-medium text-sm">Carrefour City - SSI</p><p class="text-xs text-gray-500">Marc Durand</p></div><span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">MAINT</span></div>
+            <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"><span class="font-bold text-sm w-12">10:00</span><div class="flex-1"><p class="font-medium text-sm">Lycée Victor Hugo - DSF</p><p class="text-xs text-gray-500">Sophie Martin</p></div><span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">MAINT</span></div>
+            <div class="flex items-center gap-3 p-2 bg-red-50 rounded-lg border border-red-200"><span class="font-bold text-sm w-12 text-red-600">14:00</span><div class="flex-1"><p class="font-medium text-sm">Hôtel Mercure - SSI HS</p><p class="text-xs text-gray-500">Marc Durand</p></div><span class="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded animate-pulse">SAV P1</span></div>
+            <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"><span class="font-bold text-sm w-12">16:30</span><div class="flex-1"><p class="font-medium text-sm">Centre Commercial - EXT</p><p class="text-xs text-gray-500">Pierre Lefebvre</p></div><span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">MAINT</span></div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <h3 class="font-bold text-gray-900 mb-4">🚨 SAV en cours <span class="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">3</span></h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3 p-2 bg-red-50 rounded-lg border border-red-200"><span class="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">P1</span><div class="flex-1"><p class="font-medium text-sm">Hôtel Mercure - SSI HS</p><p class="text-xs text-gray-500">Marc Durand</p></div><div class="text-right"><p class="text-red-600 font-bold text-sm">2h</p><p class="text-xs text-red-500">restantes</p></div></div>
+            <div class="flex items-center gap-3 p-2 bg-orange-50 rounded-lg border border-orange-200"><span class="px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded">P2</span><div class="flex-1"><p class="font-medium text-sm">Clinique St-Jean - DSF</p><p class="text-xs text-gray-500">Sophie Martin</p></div><div class="text-right"><p class="text-orange-600 font-bold text-sm">18h</p><p class="text-xs text-orange-500">restantes</p></div></div>
+            <div class="flex items-center gap-3 p-2 bg-yellow-50 rounded-lg border border-yellow-200"><span class="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded">P3</span><div class="flex-1"><p class="font-medium text-sm">Résidence Les Pins - BAES</p><p class="text-xs text-gray-500">Non affecté</p></div><div class="text-right"><p class="text-yellow-600 font-bold text-sm">48h</p><p class="text-xs text-yellow-500">restantes</p></div></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Devis + Factures + CA -->
+      <div class="grid md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-xl border p-4">
+          <h3 class="font-bold text-gray-900 mb-3">📝 Devis</h3>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-yellow-50 rounded-lg p-2"><p class="text-lg font-bold text-yellow-700">5</p><p class="text-xs text-yellow-600">En attente</p></div>
+            <div class="bg-green-50 rounded-lg p-2"><p class="text-lg font-bold text-green-700">12</p><p class="text-xs text-green-600">Acceptés</p></div>
+            <div class="bg-gray-50 rounded-lg p-2"><p class="text-lg font-bold text-gray-700">3</p><p class="text-xs text-gray-600">Refusés</p></div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <h3 class="font-bold text-gray-900 mb-3">💰 Factures</h3>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-blue-50 rounded-lg p-2"><p class="text-lg font-bold text-blue-700">8</p><p class="text-xs text-blue-600">À émettre</p></div>
+            <div class="bg-orange-50 rounded-lg p-2"><p class="text-lg font-bold text-orange-700">4</p><p class="text-xs text-orange-600">En attente</p></div>
+            <div class="bg-red-50 rounded-lg p-2"><p class="text-lg font-bold text-red-700">2</p><p class="text-xs text-red-600">Impayées</p></div>
+          </div>
+        </div>
+        <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-4 text-white">
+          <h3 class="font-bold mb-2">📈 CA du mois</h3>
+          <p class="text-2xl font-bold">28 450 €</p>
+          <p class="text-xs text-green-200">+12% vs mois dernier</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGE: CLIENTS ==================== -->
+    <div id="page-clients" class="page-section">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">🏢 Clients</h1>
+          <p class="text-gray-500">Gestion de vos clients</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">📥 Import Excel</button>
+          <button class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">➕ Nouveau client</button>
+        </div>
+      </div>
+      
+      <!-- Filtres -->
+      <div class="bg-white rounded-xl border p-4 mb-6">
+        <div class="flex flex-wrap gap-4">
+          <input type="text" placeholder="Rechercher..." class="border rounded-lg px-3 py-2 text-sm flex-1 min-w-48">
+          <select class="border rounded-lg px-3 py-2 text-sm"><option>Tous les types</option><option>Particulier</option><option>Entreprise</option><option>Collectivité</option></select>
+          <select class="border rounded-lg px-3 py-2 text-sm"><option>Tous les statuts</option><option>Actif</option><option>Inactif</option></select>
+        </div>
+      </div>
+      
+      <!-- Tableau -->
+      <div class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="text-left p-4 font-medium text-gray-600">Client</th>
+              <th class="text-left p-4 font-medium text-gray-600">Contact</th>
+              <th class="text-left p-4 font-medium text-gray-600">Sites</th>
+              <th class="text-left p-4 font-medium text-gray-600">Contrats</th>
+              <th class="text-left p-4 font-medium text-gray-600">Statut</th>
+              <th class="text-left p-4 font-medium text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4"><p class="font-medium text-gray-900">Carrefour City Guyancourt</p><p class="text-xs text-gray-500">N° CLI-2026-001</p></td>
+              <td class="p-4"><p class="text-gray-900">M. Martin</p><p class="text-xs text-gray-500">01 23 45 67 89</p></td>
+              <td class="p-4"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">3 sites</span></td>
+              <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">2 actifs</span></td>
+              <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Actif</span></td>
+              <td class="p-4"><button class="text-blue-600 hover:text-blue-800 text-xs">Voir</button> <button class="text-gray-600 hover:text-gray-800 text-xs ml-2">Modifier</button></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4"><p class="font-medium text-gray-900">Clinique Saint-Jean</p><p class="text-xs text-gray-500">N° CLI-2026-002</p></td>
+              <td class="p-4"><p class="text-gray-900">Dr. Dupont</p><p class="text-xs text-gray-500">01 98 76 54 32</p></td>
+              <td class="p-4"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">1 site</span></td>
+              <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">1 actif</span></td>
+              <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Actif</span></td>
+              <td class="p-4"><button class="text-blue-600 hover:text-blue-800 text-xs">Voir</button> <button class="text-gray-600 hover:text-gray-800 text-xs ml-2">Modifier</button></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4"><p class="font-medium text-gray-900">Lycée Victor Hugo</p><p class="text-xs text-gray-500">N° CLI-2026-003</p></td>
+              <td class="p-4"><p class="text-gray-900">M. Bernard</p><p class="text-xs text-gray-500">01 11 22 33 44</p></td>
+              <td class="p-4"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">2 sites</span></td>
+              <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">3 actifs</span></td>
+              <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Actif</span></td>
+              <td class="p-4"><button class="text-blue-600 hover:text-blue-800 text-xs">Voir</button> <button class="text-gray-600 hover:text-gray-800 text-xs ml-2">Modifier</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="p-4 border-t bg-gray-50 flex justify-between items-center">
+          <p class="text-sm text-gray-500">Affichage 1-3 sur 24 clients</p>
+          <div class="flex gap-2">
+            <button class="px-3 py-1 border rounded text-sm">Précédent</button>
+            <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm">1</button>
+            <button class="px-3 py-1 border rounded text-sm">2</button>
+            <button class="px-3 py-1 border rounded text-sm">Suivant</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGE: SITES ==================== -->
+    <div id="page-sites" class="page-section">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">📍 Sites</h1>
+          <p class="text-gray-500">Gestion des sites d'intervention</p>
+        </div>
+        <button class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">➕ Nouveau site</button>
+      </div>
+      
+      <!-- Stats sites -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">67</p><p class="text-gray-500 text-xs">Total sites</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">45</p><p class="text-gray-500 text-xs">ERP</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">15</p><p class="text-gray-500 text-xs">IGH</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">7</p><p class="text-gray-500 text-xs">Habitation</p></div>
+      </div>
+      
+      <!-- Tableau sites -->
+      <div class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="text-left p-4 font-medium text-gray-600">Site</th>
+              <th class="text-left p-4 font-medium text-gray-600">Client</th>
+              <th class="text-left p-4 font-medium text-gray-600">Adresse</th>
+              <th class="text-left p-4 font-medium text-gray-600">Type ERP</th>
+              <th class="text-left p-4 font-medium text-gray-600">Technicien</th>
+              <th class="text-left p-4 font-medium text-gray-600">Domaines</th>
+              <th class="text-left p-4 font-medium text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4"><p class="font-medium text-gray-900">Carrefour City</p><p class="text-xs text-gray-500">SIT-001</p></td>
+              <td class="p-4">Carrefour</td>
+              <td class="p-4"><p class="text-gray-900">12 rue du Commerce</p><p class="text-xs text-gray-500">78280 Guyancourt</p></td>
+              <td class="p-4"><span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">M - Cat 5</span></td>
+              <td class="p-4">Marc D.</td>
+              <td class="p-4"><span class="px-1 py-0.5 bg-red-100 text-red-700 rounded text-xs mr-1">SSI</span><span class="px-1 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">BAES</span></td>
+              <td class="p-4"><button class="text-blue-600 text-xs">Voir</button></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4"><p class="font-medium text-gray-900">Clinique St-Jean</p><p class="text-xs text-gray-500">SIT-002</p></td>
+              <td class="p-4">Clinique SJ</td>
+              <td class="p-4"><p class="text-gray-900">45 av. de la Santé</p><p class="text-xs text-gray-500">78000 Versailles</p></td>
+              <td class="p-4"><span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">U - Cat 2</span></td>
+              <td class="p-4">Sophie M.</td>
+              <td class="p-4"><span class="px-1 py-0.5 bg-red-100 text-red-700 rounded text-xs mr-1">SSI</span><span class="px-1 py-0.5 bg-blue-100 text-blue-700 rounded text-xs mr-1">DSF</span><span class="px-1 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">BAES</span></td>
+              <td class="p-4"><button class="text-blue-600 text-xs">Voir</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGE: PLANNING ==================== -->
+    <div id="page-planning" class="page-section">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">📅 Planning</h1>
+          <p class="text-gray-500">Planification des interventions</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="border border-gray-300 px-4 py-2 rounded-lg text-sm">◀ Sem. préc.</button>
+          <button class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Aujourd'hui</button>
+          <button class="border border-gray-300 px-4 py-2 rounded-lg text-sm">Sem. suiv. ▶</button>
+        </div>
+      </div>
+      
+      <!-- Calendrier semaine -->
+      <div class="bg-white rounded-xl border overflow-hidden">
+        <div class="grid grid-cols-8 border-b">
+          <div class="p-3 bg-gray-50 border-r"></div>
+          <div class="p-3 text-center border-r"><p class="font-medium">Lun 13</p></div>
+          <div class="p-3 text-center border-r bg-blue-50"><p class="font-medium text-blue-700">Mar 14</p><p class="text-xs text-blue-600">Aujourd'hui</p></div>
+          <div class="p-3 text-center border-r"><p class="font-medium">Mer 15</p></div>
+          <div class="p-3 text-center border-r"><p class="font-medium">Jeu 16</p></div>
+          <div class="p-3 text-center border-r"><p class="font-medium">Ven 17</p></div>
+          <div class="p-3 text-center border-r bg-gray-50"><p class="font-medium text-gray-500">Sam 18</p></div>
+          <div class="p-3 text-center bg-gray-50"><p class="font-medium text-gray-500">Dim 19</p></div>
+        </div>
+        
+        <!-- Ligne technicien -->
+        <div class="grid grid-cols-8 border-b">
+          <div class="p-3 bg-gray-50 border-r flex items-center gap-2">
+            <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">MD</div>
+            <span class="text-sm font-medium">Marc D.</span>
+          </div>
+          <div class="p-2 border-r">
+            <div class="bg-blue-100 text-blue-700 text-xs p-2 rounded mb-1">08:30 SSI Carrefour</div>
+            <div class="bg-green-100 text-green-700 text-xs p-2 rounded">14:00 BAES Lycée</div>
+          </div>
+          <div class="p-2 border-r bg-blue-50">
+            <div class="bg-red-100 text-red-700 text-xs p-2 rounded border border-red-300">09:00 SAV P1 Hôtel</div>
+          </div>
+          <div class="p-2 border-r">
+            <div class="bg-purple-100 text-purple-700 text-xs p-2 rounded">10:00 EXT Centre</div>
+          </div>
+          <div class="p-2 border-r"></div>
+          <div class="p-2 border-r">
+            <div class="bg-blue-100 text-blue-700 text-xs p-2 rounded">08:00 SSI Résidence</div>
+          </div>
+          <div class="p-2 border-r bg-gray-50"></div>
+          <div class="p-2 bg-gray-50"></div>
+        </div>
+        
+        <!-- Ligne technicien 2 -->
+        <div class="grid grid-cols-8 border-b">
+          <div class="p-3 bg-gray-50 border-r flex items-center gap-2">
+            <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">SM</div>
+            <span class="text-sm font-medium">Sophie M.</span>
+          </div>
+          <div class="p-2 border-r">
+            <div class="bg-cyan-100 text-cyan-700 text-xs p-2 rounded">09:00 DSF Clinique</div>
+          </div>
+          <div class="p-2 border-r bg-blue-50">
+            <div class="bg-blue-100 text-blue-700 text-xs p-2 rounded mb-1">08:30 SSI Mairie</div>
+            <div class="bg-orange-100 text-orange-700 text-xs p-2 rounded">14:00 SAV P2 Clinique</div>
+          </div>
+          <div class="p-2 border-r"></div>
+          <div class="p-2 border-r">
+            <div class="bg-green-100 text-green-700 text-xs p-2 rounded">10:00 RIA École</div>
+          </div>
+          <div class="p-2 border-r">
+            <div class="bg-blue-100 text-blue-700 text-xs p-2 rounded">09:00 DSF Hôpital</div>
+          </div>
+          <div class="p-2 border-r bg-gray-50"></div>
+          <div class="p-2 bg-gray-50"></div>
+        </div>
+        
+        <!-- Ligne technicien 3 -->
+        <div class="grid grid-cols-8">
+          <div class="p-3 bg-gray-50 border-r flex items-center gap-2">
+            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">PL</div>
+            <span class="text-sm font-medium">Pierre L.</span>
+          </div>
+          <div class="p-2 border-r"></div>
+          <div class="p-2 border-r bg-blue-50">
+            <div class="bg-red-100 text-red-700 text-xs p-2 rounded">16:30 EXT Centre</div>
+          </div>
+          <div class="p-2 border-r">
+            <div class="bg-yellow-100 text-yellow-700 text-xs p-2 rounded">08:00 BAES Maison</div>
+          </div>
+          <div class="p-2 border-r">
+            <div class="bg-blue-100 text-blue-700 text-xs p-2 rounded">09:00 SSI Bureau</div>
+          </div>
+          <div class="p-2 border-r"></div>
+          <div class="p-2 border-r bg-gray-50"></div>
+          <div class="p-2 bg-gray-50"></div>
+        </div>
+      </div>
+      
+      <!-- Légende -->
+      <div class="flex flex-wrap gap-4 mt-4">
+        <span class="flex items-center gap-2 text-xs"><span class="w-3 h-3 bg-blue-200 rounded"></span> Maintenance</span>
+        <span class="flex items-center gap-2 text-xs"><span class="w-3 h-3 bg-red-200 rounded"></span> SAV P1</span>
+        <span class="flex items-center gap-2 text-xs"><span class="w-3 h-3 bg-orange-200 rounded"></span> SAV P2</span>
+        <span class="flex items-center gap-2 text-xs"><span class="w-3 h-3 bg-yellow-200 rounded"></span> SAV P3</span>
+        <span class="flex items-center gap-2 text-xs"><span class="w-3 h-3 bg-purple-200 rounded"></span> Travaux</span>
+        <span class="flex items-center gap-2 text-xs"><span class="w-3 h-3 bg-green-200 rounded"></span> Mise en service</span>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGE: VEHICULES ==================== -->
+    <div id="page-vehicules" class="page-section">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">🚗 Véhicules</h1>
+          <p class="text-gray-500">Gestion du parc automobile</p>
+        </div>
+        <button class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">➕ Nouveau véhicule</button>
+      </div>
+      
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">5</p><p class="text-gray-500 text-xs">Véhicules</p></div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200"><p class="text-2xl font-bold text-green-700">4</p><p class="text-green-600 text-xs">CT OK</p></div>
+        <div class="bg-orange-50 rounded-xl p-4 border border-orange-200"><p class="text-2xl font-bold text-orange-700">1</p><p class="text-orange-600 text-xs">CT < 30j</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">45 230</p><p class="text-gray-500 text-xs">km moyen</p></div>
+      </div>
+      
+      <!-- Liste véhicules -->
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl border p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl">🚐</span>
+              <div>
+                <p class="font-bold text-gray-900">AB-123-CD</p>
+                <p class="text-sm text-gray-500">Renault Kangoo</p>
+              </div>
+            </div>
+            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">CT OK</span>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-gray-500">Affecté à</span><span class="font-medium">Marc Durand</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Kilométrage</span><span>52 340 km</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Prochain CT</span><span>15/08/2026</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Assurance</span><span>12/03/2026</span></div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl border p-4 border-orange-200">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl">🚐</span>
+              <div>
+                <p class="font-bold text-gray-900">EF-456-GH</p>
+                <p class="text-sm text-gray-500">Peugeot Partner</p>
+              </div>
+            </div>
+            <span class="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded animate-pulse">CT 15j</span>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-gray-500">Affecté à</span><span class="font-medium">Sophie Martin</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Kilométrage</span><span>38 120 km</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Prochain CT</span><span class="text-orange-600 font-medium">27/01/2026</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Assurance</span><span>05/06/2026</span></div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl border p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl">🚐</span>
+              <div>
+                <p class="font-bold text-gray-900">IJ-789-KL</p>
+                <p class="text-sm text-gray-500">Citroën Berlingo</p>
+              </div>
+            </div>
+            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">CT OK</span>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-gray-500">Affecté à</span><span class="font-medium">Pierre Lefebvre</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Kilométrage</span><span>45 890 km</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Prochain CT</span><span>22/09/2026</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Assurance</span><span>18/11/2026</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGE: TRAVAUX ==================== -->
+    <div id="page-travaux" class="page-section">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">🏗️ Travaux</h1>
+          <p class="text-gray-500">Installations et modifications</p>
+        </div>
+        <button class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">➕ Nouveau chantier</button>
+      </div>
+      
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">12</p><p class="text-gray-500 text-xs">Total travaux</p></div>
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200"><p class="text-2xl font-bold text-blue-700">3</p><p class="text-blue-600 text-xs">En cours</p></div>
+        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-200"><p class="text-2xl font-bold text-yellow-700">2</p><p class="text-yellow-600 text-xs">Planifiés</p></div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200"><p class="text-2xl font-bold text-green-700">7</p><p class="text-green-600 text-xs">Terminés</p></div>
+      </div>
+      
+      <!-- Liste travaux -->
+      <div class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="text-left p-4 font-medium text-gray-600">N° / Objet</th>
+              <th class="text-left p-4 font-medium text-gray-600">Site</th>
+              <th class="text-left p-4 font-medium text-gray-600">Domaine</th>
+              <th class="text-left p-4 font-medium text-gray-600">Devis</th>
+              <th class="text-left p-4 font-medium text-gray-600">Date prévue</th>
+              <th class="text-left p-4 font-medium text-gray-600">Technicien</th>
+              <th class="text-left p-4 font-medium text-gray-600">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4"><p class="font-medium text-gray-900">TRV-2026-008</p><p class="text-xs text-gray-500">Extension détection étage 3</p></td>
+              <td class="p-4">Clinique St-Jean</td>
+              <td class="p-4"><span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">SSI</span></td>
+              <td class="p-4"><span class="text-blue-600">D-2026-041</span></td>
+              <td class="p-4">18/01/2026</td>
+              <td class="p-4">Marc D.</td>
+              <td class="p-4"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">En cours</span></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4"><p class="font-medium text-gray-900">TRV-2026-009</p><p class="text-xs text-gray-500">Remplacement CMSI</p></td>
+              <td class="p-4">Lycée Victor Hugo</td>
+              <td class="p-4"><span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">SSI</span></td>
+              <td class="p-4"><span class="text-blue-600">D-2026-042</span></td>
+              <td class="p-4">25/01/2026</td>
+              <td class="p-4">Sophie M.</td>
+              <td class="p-4"><span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">Planifié</span></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4"><p class="font-medium text-gray-900">TRV-2026-010</p><p class="text-xs text-gray-500">Installation DSF parking</p></td>
+              <td class="p-4">Centre Commercial</td>
+              <td class="p-4"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">DSF</span></td>
+              <td class="p-4"><span class="text-blue-600">D-2026-038</span></td>
+              <td class="p-4">10/01/2026</td>
+              <td class="p-4">Pierre L.</td>
+              <td class="p-4"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">En cours</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGE: MISE EN SERVICE ==================== -->
+    <div id="page-miseenservice" class="page-section">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">🎯 Mise en Service SSI</h1>
+          <p class="text-gray-500">Réceptions et autocontrôles</p>
+        </div>
+        <button class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">➕ Nouvelle MES</button>
+      </div>
+      
+      <!-- Pipeline MES -->
+      <div class="grid grid-cols-5 gap-4 mb-6">
+        <div class="bg-gray-50 rounded-xl p-4 border-2 border-dashed">
+          <p class="font-medium text-gray-700 text-sm mb-2">📋 Commande</p>
+          <div class="space-y-2">
+            <div class="bg-white rounded-lg p-2 border text-xs">
+              <p class="font-medium">MES-2026-004</p>
+              <p class="text-gray-500">Résidence Neuve</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+          <p class="font-medium text-blue-700 text-sm mb-2">🏗️ Chantier</p>
+          <div class="space-y-2">
+            <div class="bg-white rounded-lg p-2 border text-xs">
+              <p class="font-medium">MES-2026-003</p>
+              <p class="text-gray-500">Immeuble Bureaux</p>
+              <p class="text-blue-600 mt-1">Visite 15/01</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-yellow-50 rounded-xl p-4 border-2 border-yellow-200">
+          <p class="font-medium text-yellow-700 text-sm mb-2">✅ Autocontrôle</p>
+          <div class="space-y-2">
+            <div class="bg-white rounded-lg p-2 border text-xs">
+              <p class="font-medium">MES-2026-002</p>
+              <p class="text-gray-500">Hôtel Moderne</p>
+              <p class="text-yellow-600 mt-1">MES 20/01</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
+          <p class="font-medium text-purple-700 text-sm mb-2">🎓 Formation</p>
+          <div class="space-y-2">
+            <div class="bg-white rounded-lg p-2 border text-xs">
+              <p class="font-medium">MES-2026-001</p>
+              <p class="text-gray-500">Centre Commercial</p>
+              <p class="text-purple-600 mt-1">Form. 18/01</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 border-2 border-green-200">
+          <p class="font-medium text-green-700 text-sm mb-2">🏆 Réception</p>
+          <p class="text-sm text-gray-500 text-center mt-4">Commission sécurité</p>
+        </div>
+      </div>
+      
+      <!-- Tableau MES -->
+      <div class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="text-left p-4 font-medium text-gray-600">N° MES</th>
+              <th class="text-left p-4 font-medium text-gray-600">Site</th>
+              <th class="text-left p-4 font-medium text-gray-600">Type SSI</th>
+              <th class="text-left p-4 font-medium text-gray-600">Visite chantier</th>
+              <th class="text-left p-4 font-medium text-gray-600">Date MES</th>
+              <th class="text-left p-4 font-medium text-gray-600">Formation</th>
+              <th class="text-left p-4 font-medium text-gray-600">Commission</th>
+              <th class="text-left p-4 font-medium text-gray-600">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4 font-medium">MES-2026-001</td>
+              <td class="p-4">Centre Commercial</td>
+              <td class="p-4">Cat. A</td>
+              <td class="p-4 text-green-600">✓ 05/01</td>
+              <td class="p-4 text-green-600">✓ 10/01</td>
+              <td class="p-4 text-yellow-600">18/01</td>
+              <td class="p-4 text-gray-400">-</td>
+              <td class="p-4"><span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">Formation</span></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4 font-medium">MES-2026-002</td>
+              <td class="p-4">Hôtel Moderne</td>
+              <td class="p-4">Cat. A</td>
+              <td class="p-4 text-green-600">✓ 08/01</td>
+              <td class="p-4 text-yellow-600">20/01</td>
+              <td class="p-4 text-gray-400">-</td>
+              <td class="p-4 text-gray-400">-</td>
+              <td class="p-4"><span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">Autocontrôle</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGE: DEVIS ==================== -->
+    <div id="page-devis" class="page-section">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">📝 Devis</h1>
+          <p class="text-gray-500">Gestion des devis</p>
+        </div>
+        <button class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">➕ Nouveau devis</button>
+      </div>
+      
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">20</p><p class="text-gray-500 text-xs">Total</p></div>
+        <div class="bg-gray-50 rounded-xl p-4 border"><p class="text-2xl font-bold text-gray-700">3</p><p class="text-gray-600 text-xs">Brouillon</p></div>
+        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-200"><p class="text-2xl font-bold text-yellow-700">5</p><p class="text-yellow-600 text-xs">Envoyés</p></div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200"><p class="text-2xl font-bold text-green-700">12</p><p class="text-green-600 text-xs">Acceptés</p></div>
+        <div class="bg-white rounded-xl p-4 border"><p class="text-xl font-bold text-gray-900">15 430 €</p><p class="text-gray-500 text-xs">En attente</p></div>
+      </div>
+      
+      <!-- Tableau -->
+      <div class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="text-left p-4 font-medium text-gray-600">N° Devis</th>
+              <th class="text-left p-4 font-medium text-gray-600">Client</th>
+              <th class="text-left p-4 font-medium text-gray-600">Objet</th>
+              <th class="text-left p-4 font-medium text-gray-600">Montant HT</th>
+              <th class="text-left p-4 font-medium text-gray-600">Date</th>
+              <th class="text-left p-4 font-medium text-gray-600">Validité</th>
+              <th class="text-left p-4 font-medium text-gray-600">Statut</th>
+              <th class="text-left p-4 font-medium text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4 font-mono font-medium">D-2026-042</td>
+              <td class="p-4">Carrefour City</td>
+              <td class="p-4">Remplacement détecteurs</td>
+              <td class="p-4 font-medium">2 450 €</td>
+              <td class="p-4">10/01/2026</td>
+              <td class="p-4">10/02/2026</td>
+              <td class="p-4"><span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">Envoyé</span></td>
+              <td class="p-4"><button class="text-blue-600 text-xs">PDF</button> <button class="text-green-600 text-xs ml-2">→ Facture</button></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4 font-mono font-medium">D-2026-041</td>
+              <td class="p-4">Lycée Hugo</td>
+              <td class="p-4">Extension SSI étage 3</td>
+              <td class="p-4 font-medium">5 890 €</td>
+              <td class="p-4">08/01/2026</td>
+              <td class="p-4">08/02/2026</td>
+              <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Accepté</span></td>
+              <td class="p-4"><button class="text-blue-600 text-xs">PDF</button> <button class="text-green-600 text-xs ml-2">→ Facture</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGE: FACTURES ==================== -->
+    <div id="page-factures" class="page-section">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">💰 Factures</h1>
+          <p class="text-gray-500">Gestion de la facturation</p>
+        </div>
+        <button class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">➕ Nouvelle facture</button>
+      </div>
+      
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 border"><p class="text-2xl font-bold">45</p><p class="text-gray-500 text-xs">Total</p></div>
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200"><p class="text-2xl font-bold text-blue-700">8</p><p class="text-blue-600 text-xs">À émettre</p></div>
+        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-200"><p class="text-2xl font-bold text-yellow-700">4</p><p class="text-yellow-600 text-xs">En attente</p></div>
+        <div class="bg-red-50 rounded-xl p-4 border border-red-200"><p class="text-2xl font-bold text-red-700">2</p><p class="text-red-600 text-xs">Impayées</p></div>
+        <div class="bg-red-50 rounded-xl p-4 border border-red-200"><p class="text-xl font-bold text-red-700">4 280 €</p><p class="text-red-600 text-xs">À recouvrer</p></div>
+      </div>
+      
+      <!-- Tableau -->
+      <div class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="text-left p-4 font-medium text-gray-600">N° Facture</th>
+              <th class="text-left p-4 font-medium text-gray-600">Client</th>
+              <th class="text-left p-4 font-medium text-gray-600">Objet</th>
+              <th class="text-left p-4 font-medium text-gray-600">Montant TTC</th>
+              <th class="text-left p-4 font-medium text-gray-600">Émission</th>
+              <th class="text-left p-4 font-medium text-gray-600">Échéance</th>
+              <th class="text-left p-4 font-medium text-gray-600">Statut</th>
+              <th class="text-left p-4 font-medium text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4 font-mono font-medium">F-2026-018</td>
+              <td class="p-4">Lycée Hugo</td>
+              <td class="p-4">Maintenance SSI S1</td>
+              <td class="p-4 font-medium">1 440 €</td>
+              <td class="p-4">05/01/2026</td>
+              <td class="p-4">05/02/2026</td>
+              <td class="p-4"><span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">En attente</span></td>
+              <td class="p-4"><button class="text-blue-600 text-xs">PDF</button> <button class="text-orange-600 text-xs ml-2">Relancer</button></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50 bg-red-50">
+              <td class="p-4 font-mono font-medium">F-2026-012</td>
+              <td class="p-4">Résidence Pins</td>
+              <td class="p-4">SAV BAES</td>
+              <td class="p-4 font-medium text-red-700">580 €</td>
+              <td class="p-4">15/12/2025</td>
+              <td class="p-4 text-red-600">15/01/2026</td>
+              <td class="p-4"><span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">Impayée</span></td>
+              <td class="p-4"><button class="text-blue-600 text-xs">PDF</button> <button class="text-red-600 text-xs ml-2">Relance 2</button></td>
+            </tr>
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-4 font-mono font-medium">F-2026-017</td>
+              <td class="p-4">Carrefour City</td>
+              <td class="p-4">Travaux SSI</td>
+              <td class="p-4 font-medium">2 940 €</td>
+              <td class="p-4">03/01/2026</td>
+              <td class="p-4">03/02/2026</td>
+              <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Payée</span></td>
+              <td class="p-4"><button class="text-blue-600 text-xs">PDF</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- ==================== PAGES SUPPLÉMENTAIRES (simplifées) ==================== -->
+    
+    <div id="page-contrats" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">📋 Contrats</h1>
+      <p class="text-gray-500 mb-6">Gestion des contrats de maintenance</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Contrats - Même structure que Clients/Sites</div>
+    </div>
+    
+    <div id="page-techniciens" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">👷 Techniciens</h1>
+      <p class="text-gray-500 mb-6">Gestion de l'équipe terrain</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Techniciens - CRUD avec compétences et habilitations</div>
+    </div>
+    
+    <div id="page-soustraitants" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">👥 Sous-traitants</h1>
+      <p class="text-gray-500 mb-6">Gestion des partenaires</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Sous-traitants - CRUD avec domaines de compétence</div>
+    </div>
+    
+    <div id="page-astreintes" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">📞 Astreintes</h1>
+      <p class="text-gray-500 mb-6">Planning des astreintes</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Astreintes - Calendrier avec technicien + téléphone</div>
+    </div>
+    
+    <div id="page-maintenances" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">🔧 Maintenances</h1>
+      <p class="text-gray-500 mb-6">Liste des maintenances par domaine</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Maintenances - Filtres par domaine + tableau état</div>
+    </div>
+    
+    <div id="page-sav" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">🚨 SAV</h1>
+      <p class="text-gray-500 mb-6">Gestion des dépannages avec priorités</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page SAV - P1/P2/P3 avec countdown et affectation</div>
+    </div>
+    
+    <div id="page-rapports" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">📄 Rapports</h1>
+      <p class="text-gray-500 mb-6">Tous les rapports générés (29 types)</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Rapports - Liste avec filtres + téléchargement PDF</div>
+    </div>
+    
+    <div id="page-observations" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">📸 Observations</h1>
+      <p class="text-gray-500 mb-6">Constats et non-conformités</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Observations - Liste avec photos + priorités + transformation en devis</div>
+    </div>
+    
+    <div id="page-alertes" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">🔔 Alertes</h1>
+      <p class="text-gray-500 mb-6">Toutes les alertes système</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Alertes - Visites retard, contrats, CT véhicules, impayés</div>
+    </div>
+    
+    <div id="page-settings" class="page-section">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">⚙️ Paramètres</h1>
+      <p class="text-gray-500 mb-6">Configuration de l'organisation</p>
+      <div class="bg-white rounded-xl border p-8 text-center text-gray-500">Page Paramètres - Logo, mentions, TVA, abonnement, utilisateurs</div>
+    </div>
+    
+  </div>
+  
+  <!-- Navigation Script -->
+  <script>
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const page = e.currentTarget.dataset.page;
+        
+        // Hide all pages
+        document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+        
+        // Show selected page
+        document.getElementById('page-' + page).classList.add('active');
+        
+        // Update nav
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+      });
+    });
+  </script>
+  
+</body>
+</html>
