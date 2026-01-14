@@ -109,52 +109,35 @@ export const DemoProvider = ({ children }) => {
     }
   }, []);
 
-  // ============================================================
-  // RESTAURER LA DÉMO (au montage)
-  // SÉCURITÉ: Ne pas restaurer si l'utilisateur a un abonnement actif
-  // ============================================================
   const restoreDemo = useCallback(() => {
     try {
       const stored = localStorage.getItem("demo_session");
-      if (!stored) return false;
-      
-      const { id, startTime, request } = JSON.parse(stored);
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      if (stored) {
+        const { id, startTime, request } = JSON.parse(stored);
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
-      // Si la démo est expirée, nettoyer
-      if (elapsed >= DEMO_DURATION) {
+        if (elapsed < DEMO_DURATION) {
+          setDemoSessionId(id);
+          setDemoRequest(request);
+          setDemoStartTime(startTime);
+          setTimeRemaining(DEMO_DURATION - elapsed);
+          setDemoExpired(false);
+          setIsDemoMode(true);
+          return true;
+        }
+
         localStorage.removeItem("demo_session");
         setDemoExpired(true);
-        return false;
       }
-
-      // Restaurer la session active
-      setDemoSessionId(id);
-      setDemoRequest(request);
-      setDemoStartTime(startTime);
-      setTimeRemaining(DEMO_DURATION - elapsed);
-      setDemoExpired(false);
-      setIsDemoMode(true);
-      return true;
-
     } catch (error) {
       console.error("Erreur restoreDemo:", error);
-      // En cas d'erreur, nettoyer le localStorage
-      localStorage.removeItem("demo_session");
     }
     return false;
   }, []);
 
-  // ============================================================
-  // TERMINER LA DÉMO (appelé après paiement)
-  // NETTOYAGE COMPLET du localStorage et des états
-  // ============================================================
   const endDemo = useCallback(
     async (converted = false) => {
-      console.log("🔚 endDemo appelé, converted:", converted);
-      
       try {
-        // Mettre à jour la session en BDD si existe
         if (demoSessionId && demoSessionId !== "local-demo") {
           await supabase
             .from("demo_sessions")
@@ -162,10 +145,9 @@ export const DemoProvider = ({ children }) => {
             .eq("id", demoSessionId);
         }
       } catch (error) {
-        console.error("Erreur update demo_sessions:", error);
+        console.error("Erreur endDemo:", error);
       }
 
-      // NETTOYAGE COMPLET
       localStorage.removeItem("demo_session");
       setIsDemoMode(false);
       setDemoStartTime(null);
@@ -173,8 +155,6 @@ export const DemoProvider = ({ children }) => {
       setDemoExpired(false);
       setDemoSessionId(null);
       setDemoRequest(null);
-      
-      console.log("✅ Session démo nettoyée");
     },
     [demoSessionId]
   );
