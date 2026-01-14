@@ -5,11 +5,12 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDemo } from '../contexts/DemoContext';
-import { 
-  LayoutDashboard, Building2, Users, MapPin, Calendar, 
+import {
+  LayoutDashboard, Building2, Users, MapPin, Calendar,
   FileText, ClipboardList, Receipt, AlertTriangle, Settings,
   LogOut, ChevronLeft, ChevronRight, Flame, Shield,
-  Gauge, Zap, Menu, X, Wrench, UserCog, Truck
+  Gauge, Zap, Menu, X, Wrench, UserCog, Truck, Users2,
+  Phone, Eye, Briefcase
 } from 'lucide-react';
 
 const MainLayout = () => {
@@ -59,10 +60,18 @@ const MainLayout = () => {
     { path: '/factures', label: 'Factures', icon: Receipt },
   ];
 
-  // Menu gestion
-  const gestionMenu = [
+  // Menu équipe
+  const equipeMenu = [
     { path: '/techniciens', label: 'Techniciens', icon: UserCog },
+    { path: '/groupes', label: 'Groupes', icon: Users2 },
     { path: '/vehicules', label: 'Véhicules', icon: Truck },
+    { path: '/sous-traitants', label: 'Sous-traitants', icon: Briefcase },
+    { path: '/astreintes', label: 'Astreintes', icon: Phone },
+  ];
+
+  // Menu suivi
+  const suiviMenu = [
+    { path: '/observations', label: 'Observations', icon: Eye },
     { path: '/alertes', label: 'Alertes', icon: AlertTriangle },
     { path: '/settings', label: 'Paramètres', icon: Settings },
   ];
@@ -139,15 +148,17 @@ const MainLayout = () => {
         {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto">
           <MenuSection title="Principal" items={mainMenu} />
-          
+
+          <MenuSection title="Équipe" items={equipeMenu} />
+
           <MenuSection title="Interventions" items={interventionsMenu} />
-          
+
           {rapportsMenu.length > 0 && (
             <MenuSection title="Rapports" items={rapportsMenu} />
           )}
-          
+
           <MenuSection title="Commercial" items={commercialMenu} />
-          <MenuSection title="Gestion" items={gestionMenu} />
+          <MenuSection title="Suivi" items={suiviMenu} />
         </nav>
 
         {/* User & Toggle */}
