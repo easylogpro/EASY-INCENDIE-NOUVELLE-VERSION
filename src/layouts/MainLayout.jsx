@@ -5,39 +5,27 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDemo } from '../contexts/DemoContext';
-import { 
-  LayoutDashboard, Building2, Users, MapPin, Calendar, 
+import {
+  LayoutDashboard, Building2, Users, MapPin, Calendar,
   FileText, ClipboardList, Receipt, AlertTriangle, Settings,
   LogOut, ChevronLeft, ChevronRight, Flame, Shield,
-  Gauge, Zap, Menu, X, Wrench, UserCog, Clock, CreditCard
+  Gauge, Zap, Menu, X, Wrench, UserCog, Truck, Users2,
+  Phone, Eye, Briefcase
 } from 'lucide-react';
 
 const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { userData, orgSettings, subscription, logout } = useAuth();
-  const { isDemoMode, demoExpired, timeRemaining, formatTimeRemaining, demoRequest } = useDemo();
+  const { isDemoMode } = useDemo();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const activeDomains = subscription?.domaines_actifs || orgSettings?.modules_actifs || [];
 
   const handleLogout = async () => {
-    try {
-      // Nettoyer localStorage
-      localStorage.removeItem('easy_prospect_data');
-      localStorage.removeItem('easy_prospect_id');
-      
-      // Déconnexion Supabase
-      await logout();
-      
-      // Redirection
-      navigate('/login');
-    } catch (error) {
-      console.error('Erreur déconnexion:', error);
-      // Forcer la redirection même en cas d'erreur
-      navigate('/login');
-    }
+    await logout();
+    navigate('/login');
   };
 
   // Menu principal
@@ -45,8 +33,15 @@ const MainLayout = () => {
     { path: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { path: '/clients', label: 'Clients', icon: Building2 },
     { path: '/sites', label: 'Sites', icon: MapPin },
+    { path: '/contrats', label: 'Contrats', icon: FileText },
     { path: '/planning', label: 'Planning', icon: Calendar },
-    { path: '/interventions', label: 'Interventions', icon: Wrench },
+  ];
+
+  // Menu interventions
+  const interventionsMenu = [
+    { path: '/sav', label: 'SAV', icon: AlertTriangle },
+    { path: '/travaux', label: 'Travaux', icon: Wrench },
+    { path: '/maintenances', label: 'Maintenances', icon: ClipboardList },
   ];
 
   // Menu rapports (selon domaines actifs)
@@ -65,9 +60,18 @@ const MainLayout = () => {
     { path: '/factures', label: 'Factures', icon: Receipt },
   ];
 
-  // Menu gestion
-  const gestionMenu = [
+  // Menu équipe
+  const equipeMenu = [
     { path: '/techniciens', label: 'Techniciens', icon: UserCog },
+    { path: '/groupes', label: 'Groupes', icon: Users2 },
+    { path: '/vehicules', label: 'Véhicules', icon: Truck },
+    { path: '/sous-traitants', label: 'Sous-traitants', icon: Briefcase },
+    { path: '/astreintes', label: 'Astreintes', icon: Phone },
+  ];
+
+  // Menu suivi
+  const suiviMenu = [
+    { path: '/observations', label: 'Observations', icon: Eye },
     { path: '/alertes', label: 'Alertes', icon: AlertTriangle },
     { path: '/settings', label: 'Paramètres', icon: Settings },
   ];
@@ -144,13 +148,17 @@ const MainLayout = () => {
         {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto">
           <MenuSection title="Principal" items={mainMenu} />
-          
+
+          <MenuSection title="Équipe" items={equipeMenu} />
+
+          <MenuSection title="Interventions" items={interventionsMenu} />
+
           {rapportsMenu.length > 0 && (
             <MenuSection title="Rapports" items={rapportsMenu} />
           )}
-          
+
           <MenuSection title="Commercial" items={commercialMenu} />
-          <MenuSection title="Gestion" items={gestionMenu} />
+          <MenuSection title="Suivi" items={suiviMenu} />
         </nav>
 
         {/* User & Toggle */}
@@ -159,20 +167,6 @@ const MainLayout = () => {
             <div className="mb-3">
               <p className="text-white font-medium">{userData.prenom} {userData.nom}</p>
               <p className="text-gray-500 text-sm truncate">{userData.email}</p>
-            </div>
-          )}
-          
-          {/* Section info modules - discrète */}
-          {!collapsed && activeDomains.length > 0 && (
-            <div className="mb-3 py-2 px-2 bg-gray-800/50 rounded text-xs text-gray-500">
-              <p className="truncate">
-                Modules: {activeDomains.slice(0, 3).join(', ')}{activeDomains.length > 3 ? '...' : ''}
-              </p>
-              {subscription?.nb_utilisateurs_max && (
-                <p className="mt-1">
-                  Utilisateurs: {subscription.nb_utilisateurs_max} max
-                </p>
-              )}
             </div>
           )}
           
@@ -216,67 +210,6 @@ const MainLayout = () => {
 
         {/* Page content */}
         <main className="flex-1 overflow-auto">
-          {/* ======================================================= */}
-          {/* BANNIÈRE DÉMO - Affichée quand isDemoMode est actif    */}
-          {/* ======================================================= */}
-          {isDemoMode && !demoExpired && (
-            <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-3 shadow-lg">
-              <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-white/20 rounded-full px-3 py-1">
-                    <Clock className="w-4 h-4" />
-                    <span className="font-mono font-bold text-lg">{formatTimeRemaining()}</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold">Mode démonstration</p>
-                    <p className="text-sm opacity-90">Explorez toutes les fonctionnalités - Les rapports sont en lecture seule</p>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => navigate('/subscribe', { 
-                    state: { 
-                      fromDemo: true,
-                      request: demoRequest 
-                    }
-                  })}
-                  className="flex items-center gap-2 bg-white text-orange-600 px-6 py-2 rounded-lg font-bold hover:bg-orange-50 transition-colors shadow-lg"
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Activer mon compte
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* BANNIÈRE DÉMO EXPIRÉE */}
-          {demoExpired && (
-            <div className="bg-gradient-to-r from-red-600 to-rose-600 text-white px-4 py-4 shadow-lg">
-              <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="w-6 h-6" />
-                  <div>
-                    <p className="font-bold">Démonstration terminée</p>
-                    <p className="text-sm opacity-90">Activez votre compte pour continuer à utiliser Easy Sécurité</p>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => navigate('/subscribe', { 
-                    state: { 
-                      fromDemo: true,
-                      request: demoRequest 
-                    }
-                  })}
-                  className="flex items-center gap-2 bg-white text-red-600 px-6 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors shadow-lg animate-pulse"
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Activer maintenant
-                </button>
-              </div>
-            </div>
-          )}
-
           <Outlet />
         </main>
       </div>

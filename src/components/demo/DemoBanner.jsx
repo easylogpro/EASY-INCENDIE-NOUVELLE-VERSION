@@ -11,12 +11,15 @@ const DemoBanner = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDemoMode, demoExpired, timeRemaining, formatTimeRemaining } = useDemo();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, subscription } = useAuth();
 
   // Ne pas afficher sur certaines pages
   const hiddenPaths = ['/', '/login', '/register', '/demo', '/demo-expired', '/subscribe'];
   if (hiddenPaths.includes(location.pathname)) return null;
-  
+
+  // NE PAS AFFICHER SI ABONNEMENT ACTIF
+  if (subscription?.status === 'active' || subscription?.status === 'trialing') return null;
+
   // Ne pas afficher si pas en mode démo
   if (!isDemoMode && !demoExpired) return null;
 

@@ -1,6 +1,6 @@
 // src/pages/RegisterPage.jsx
 // Étape 1 : Email + mot de passe seulement
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../config/supabase";
 import { generateRequestSummary } from "../utils/pricingAlgorithm";
@@ -22,6 +22,35 @@ const RegisterPage = () => {
   // Données venant du questionnaire landing
   const questionnaireData = location.state?.questionnaireData || null;
   const pricingFromLanding = location.state?.pricing || null;
+
+  // SAUVEGARDER IMMÉDIATEMENT dans localStorage dès qu'on a les données
+  useEffect(() => {
+    if (questionnaireData && pricingFromLanding) {
+      const dataToStore = {
+        timestamp: Date.now(),
+        formData: questionnaireData,
+        pricing: pricingFromLanding,
+        prospectData: {
+          domaines_demandes: questionnaireData.modulesInteresses || ['ssi'],
+          profil_demande: questionnaireData.typeActivite || 'mainteneur',
+          nb_utilisateurs: questionnaireData.nombreTechniciens || '1',
+          nb_sites: questionnaireData.nombreSites,
+          logiciel_actuel: questionnaireData.logicielActuel,
+          tarif_calcule: pricingFromLanding.finalPrice,
+          options_selectionnees: {
+            addons: pricingFromLanding.selectedAddons || [],
+            nb_sites: questionnaireData.nombreSites,
+            tarif_base: pricingFromLanding.basePrice,
+            tarif_options: pricingFromLanding.addonsTotal,
+            tarif_total: pricingFromLanding.totalPrice,
+            discount: pricingFromLanding.discount,
+          },
+        },
+      };
+      localStorage.setItem('easy_prospect_data', JSON.stringify(dataToStore));
+      console.log('✅ Données questionnaire sauvegardées dans localStorage:', dataToStore);
+    }
+  }, [questionnaireData, pricingFromLanding]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

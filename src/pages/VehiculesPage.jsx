@@ -1,416 +1,580 @@
-// src/pages/VehiculesPage.jsx
-// Easy Sécurité - Gestion des véhicules
+// =============================================================================
+// EASY INCENDIE - VehiculesPage.jsx
+// CRUD Véhicules avec connexion Supabase
+// ⚠️ CHAMPS CORRECTS: km_actuel (PAS kilometrage), date_prochain_ct (PAS date_ct),
+//                     date_mise_circulation (PAS annee)
+// Champs BDD: id, organisation_id, technicien_id, immatriculation (NOT NULL),
+//             marque, modele, type, date_mise_circulation, date_achat, km_actuel,
+//             date_controle_technique, date_prochain_ct, assurance_numero,
+//             assurance_echeance, statut, notes
+// =============================================================================
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../config/supabase';
-import {
-  Car, Plus, Search, Edit2, Trash2, AlertTriangle,
-  Calendar, Gauge, User, MoreVertical, CheckCircle2
-} from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-const VehiculesPage = () => {
+const STATUTS = [
+  { value: 'disponible', label: 'Disponible', color: 'green' },
+  { value: 'en_service', label: 'En service', color: 'blue' },
+  { value: 'maintenance', label: 'En maintenance', color: 'orange' },
+  { value: 'hors_service', label: 'Hors service', color: 'red' },
+];
+
+export default function VehiculesPage() {
   const { orgId } = useAuth();
+  
+  // États
   const [vehicules, setVehicules] = useState([]);
   const [techniciens, setTechniciens] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingVehicule, setEditingVehicule] = useState(null);
-  const [formData, setFormData] = useState({
+  
+  // Formulaire - ⚠️ Champs CORRECTS
+  const [form, setForm] = useState({
     immatriculation: '',
     marque: '',
     modele: '',
-    date_mise_circulation: '',    // ⚠️ Corrigé: était "annee"
-    km_actuel: 0,                 // ⚠️ Corrigé: était "kilometrage"
-    date_prochain_ct: '',         // ⚠️ Corrigé: était "date_ct"
+    type: 'utilitaire',
+    date_mise_circulation: '',  // ⚠️ PAS annee
+    date_achat: '',
+    km_actuel: null,            // ⚠️ PAS kilometrage
+    date_controle_technique: '',
+    date_prochain_ct: '',       // ⚠️ PAS date_ct
+    assurance_numero: '',
+    assurance_echeance: '',
     technicien_id: '',
+    statut: 'disponible',
     notes: ''
   });
 
+  // Charger données
   useEffect(() => {
-    if (orgId) loadData();
+    if (orgId) {
+      loadVehicules();
+      loadTechniciens();
+    }
   }, [orgId]);
 
-  const loadData = async () => {
+  const loadVehicules = async () => {
     setLoading(true);
     try {
-      const [vehRes, techRes] = await Promise.all([
-        supabase
-          .from('vehicules')
-          .select('*, techniciens(id, nom, prenom)')
-          .eq('organisation_id', orgId)
-          .order('immatriculation'),
-        supabase
-          .from('techniciens')
-          .select('id, nom, prenom')
-          .eq('organisation_id', orgId)
-          .eq('actif', true)
-      ]);
+      const { data, error } = await supabase
+        .from('vehicules')
+        .select(`
+          *,
+          technicien:techniciens(nom, prenom)
+        `)
+        .eq('organisation_id', orgId)
+        .order('immatriculation');
 
-      setVehicules(vehRes.data || []);
-      setTechniciens(techRes.data || []);
-    } catch (error) {
-      console.error('Erreur chargement:', error);
+      if (error) throw error;
+      setVehicules(data || []);
+    } catch (err) {
+      console.error('Erreur chargement véhicules:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        ...formData,
-        organisation_id: orgId,
-        technicien_id: formData.technicien_id || null
-      };
-
-      if (editingVehicule) {
-        await supabase
-          .from('vehicules')
-          .update(payload)
-          .eq('id', editingVehicule.id);
-      } else {
-        await supabase
-          .from('vehicules')
-          .insert(payload);
-      }
-
-      setShowModal(false);
-      resetForm();
-      loadData();
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-    }
+  const loadTechniciens = async () => {
+    const { data } = await supabase
+      .from('techniciens')
+      .select('id, nom, prenom')
+      .eq('organisation_id', orgId)
+      .eq('actif', true)
+      .order('nom');
+    setTechniciens(data || []);
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce véhicule ?')) return;
-    try {
-      await supabase.from('vehicules').delete().eq('id', id);
-      loadData();
-    } catch (error) {
-      console.error('Erreur suppression:', error);
-    }
+  // Stats
+  const stats = useMemo(() => {
+    const today = new Date();
+    const in15Days = new Date(today.getTime() + 15 * 24 * 60 * 60 * 1000);
+    const in30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    return {
+      total: vehicules.length,
+      ctOk: vehicules.filter(v => {
+        if (!v.date_prochain_ct) return true;
+        return new Date(v.date_prochain_ct) > in30Days;
+      }).length,
+      ctSoon: vehicules.filter(v => {
+        if (!v.date_prochain_ct) return false;
+        const date = new Date(v.date_prochain_ct);
+        return date > in15Days && date <= in30Days;
+      }).length,
+      ctUrgent: vehicules.filter(v => {
+        if (!v.date_prochain_ct) return false;
+        return new Date(v.date_prochain_ct) <= in15Days;
+      }).length,
+      kmMoyen: vehicules.length > 0 
+        ? Math.round(vehicules.reduce((sum, v) => sum + (v.km_actuel || 0), 0) / vehicules.length)
+        : 0
+    };
+  }, [vehicules]);
+
+  // Statut CT
+  const getCtStatus = (dateProchainCt) => {
+    if (!dateProchainCt) return { status: 'ok', label: 'CT OK', color: 'green' };
+    
+    const today = new Date();
+    const dateCt = new Date(dateProchainCt);
+    const diffDays = Math.ceil((dateCt - today) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return { status: 'expired', label: 'CT Expiré', color: 'red' };
+    if (diffDays <= 15) return { status: 'urgent', label: `CT ${diffDays}j`, color: 'red' };
+    if (diffDays <= 30) return { status: 'soon', label: `CT ${diffDays}j`, color: 'orange' };
+    return { status: 'ok', label: 'CT OK', color: 'green' };
   };
 
-  const resetForm = () => {
-    setFormData({
+  // Ouvrir modal création
+  const handleNew = () => {
+    setForm({
       immatriculation: '',
       marque: '',
       modele: '',
-      date_mise_circulation: '',    // ⚠️ Corrigé
-      km_actuel: 0,                 // ⚠️ Corrigé
-      date_prochain_ct: '',         // ⚠️ Corrigé
+      type: 'utilitaire',
+      date_mise_circulation: '',
+      date_achat: '',
+      km_actuel: null,
+      date_controle_technique: '',
+      date_prochain_ct: '',
+      assurance_numero: '',
+      assurance_echeance: '',
       technicien_id: '',
+      statut: 'disponible',
       notes: ''
     });
     setEditingVehicule(null);
-  };
-
-  const openEdit = (vehicule) => {
-    setEditingVehicule(vehicule);
-    setFormData({
-      immatriculation: vehicule.immatriculation || '',
-      marque: vehicule.marque || '',
-      modele: vehicule.modele || '',
-      date_mise_circulation: vehicule.date_mise_circulation || '',  // ⚠️ Corrigé
-      km_actuel: vehicule.km_actuel || 0,                           // ⚠️ Corrigé
-      date_prochain_ct: vehicule.date_prochain_ct || '',            // ⚠️ Corrigé
-      technicien_id: vehicule.technicien_id || '',
-      notes: vehicule.notes || ''
-    });
     setShowModal(true);
   };
 
-  const isCtExpiringSoon = (date) => {
-    if (!date) return false;
-    const ctDate = new Date(date);
-    const today = new Date();
-    const diffDays = Math.ceil((ctDate - today) / (1000 * 60 * 60 * 24));
-    return diffDays <= 30 && diffDays >= 0;
+  // Ouvrir modal édition
+  const handleEdit = (vehicule) => {
+    setForm({
+      immatriculation: vehicule.immatriculation || '',
+      marque: vehicule.marque || '',
+      modele: vehicule.modele || '',
+      type: vehicule.type || 'utilitaire',
+      date_mise_circulation: vehicule.date_mise_circulation || '',
+      date_achat: vehicule.date_achat || '',
+      km_actuel: vehicule.km_actuel || null,
+      date_controle_technique: vehicule.date_controle_technique || '',
+      date_prochain_ct: vehicule.date_prochain_ct || '',
+      assurance_numero: vehicule.assurance_numero || '',
+      assurance_echeance: vehicule.assurance_echeance || '',
+      technicien_id: vehicule.technicien_id || '',
+      statut: vehicule.statut || 'disponible',
+      notes: vehicule.notes || ''
+    });
+    setEditingVehicule(vehicule);
+    setShowModal(true);
   };
 
-  const isCtExpired = (date) => {
-    if (!date) return false;
-    return new Date(date) < new Date();
+  // Sauvegarder
+  const handleSave = async () => {
+    if (!form.immatriculation.trim()) {
+      alert("L'immatriculation est obligatoire");
+      return;
+    }
+
+    try {
+      const vehiculeData = {
+        ...form,
+        organisation_id: orgId,
+        technicien_id: form.technicien_id || null,
+        km_actuel: form.km_actuel || null,
+        date_mise_circulation: form.date_mise_circulation || null,
+        date_achat: form.date_achat || null,
+        date_controle_technique: form.date_controle_technique || null,
+        date_prochain_ct: form.date_prochain_ct || null,
+        assurance_echeance: form.assurance_echeance || null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (editingVehicule) {
+        const { error } = await supabase
+          .from('vehicules')
+          .update(vehiculeData)
+          .eq('id', editingVehicule.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('vehicules')
+          .insert([vehiculeData]);
+        if (error) throw error;
+      }
+
+      setShowModal(false);
+      loadVehicules();
+    } catch (err) {
+      console.error('Erreur sauvegarde:', err);
+      alert('Erreur lors de la sauvegarde: ' + err.message);
+    }
   };
 
-  const filteredVehicules = vehicules.filter(v =>
-    v.immatriculation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.marque?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.modele?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const statsCtOk = vehicules.filter(v => !isCtExpired(v.date_prochain_ct) && !isCtExpiringSoon(v.date_prochain_ct)).length;
-  const statsCtWarning = vehicules.filter(v => isCtExpiringSoon(v.date_prochain_ct)).length;
-  const statsCtExpired = vehicules.filter(v => isCtExpired(v.date_prochain_ct)).length;
+  // Supprimer
+  const handleDelete = async (vehicule) => {
+    if (!confirm(`Supprimer le véhicule "${vehicule.immatriculation}" ?`)) return;
+    
+    try {
+      const { error } = await supabase
+        .from('vehicules')
+        .delete()
+        .eq('id', vehicule.id);
+      if (error) throw error;
+      loadVehicules();
+    } catch (err) {
+      console.error('Erreur suppression:', err);
+      alert('Erreur lors de la suppression');
+    }
+  };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Car className="w-7 h-7 text-red-500" />
-            Véhicules
-          </h1>
-          <p className="text-gray-500">{vehicules.length} véhicule{vehicules.length > 1 ? 's' : ''}</p>
+          <h1 className="text-2xl font-bold text-gray-900">🚗 Véhicules</h1>
+          <p className="text-gray-500">Gestion du parc automobile</p>
         </div>
-        <button
-          onClick={() => { resetForm(); setShowModal(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg hover:from-red-600 hover:to-orange-600 shadow-lg"
+        <button 
+          onClick={handleNew}
+          className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90"
         >
-          <Plus className="w-5 h-5" />
-          Ajouter un véhicule
+          ➕ Nouveau véhicule
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Car className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{vehicules.length}</p>
-              <p className="text-gray-500 text-sm">Total</p>
-            </div>
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 border">
+          <p className="text-2xl font-bold">{stats.total}</p>
+          <p className="text-gray-500 text-xs">Véhicules</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{statsCtOk}</p>
-              <p className="text-gray-500 text-sm">CT OK</p>
-            </div>
-          </div>
+        <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p className="text-2xl font-bold text-green-700">{stats.ctOk}</p>
+          <p className="text-green-600 text-xs">CT OK</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{statsCtWarning}</p>
-              <p className="text-gray-500 text-sm">CT &lt; 30j</p>
-            </div>
-          </div>
+        <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+          <p className="text-2xl font-bold text-orange-700">{stats.ctSoon}</p>
+          <p className="text-orange-600 text-xs">CT &lt; 30j</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{statsCtExpired}</p>
-              <p className="text-gray-500 text-sm">CT expiré</p>
-            </div>
-          </div>
+        <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+          <p className="text-2xl font-bold text-red-700">{stats.ctUrgent}</p>
+          <p className="text-red-600 text-xs">CT &lt; 15j</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 border">
+          <p className="text-2xl font-bold">{stats.kmMoyen.toLocaleString()}</p>
+          <p className="text-gray-500 text-xs">km moyen</p>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Rechercher un véhicule..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-        />
-      </div>
-
-      {/* Liste */}
+      {/* Liste Véhicules (Cards) */}
       {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full mx-auto"></div>
-        </div>
-      ) : filteredVehicules.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-          <Car className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">Aucun véhicule</p>
+        <div className="bg-white rounded-xl p-8 text-center text-gray-500 border">Chargement...</div>
+      ) : vehicules.length === 0 ? (
+        <div className="bg-white rounded-xl p-8 text-center text-gray-500 border">
+          Aucun véhicule. Ajoutez votre premier véhicule !
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredVehicules.map((vehicule) => (
-            <div key={vehicule.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="font-bold text-lg">{vehicule.immatriculation}</p>
-                  <p className="text-gray-500">{vehicule.marque} {vehicule.modele}</p>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => openEdit(vehicule)}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <Edit2 className="w-4 h-4 text-gray-500" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(vehicule.id)}
-                    className="p-2 hover:bg-red-50 rounded-lg"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Gauge className="w-4 h-4" />
-                  <span>{vehicule.km_actuel?.toLocaleString() || 0} km</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <span className={`
-                    ${isCtExpired(vehicule.date_prochain_ct) ? 'text-red-600 font-medium' : ''}
-                    ${isCtExpiringSoon(vehicule.date_prochain_ct) ? 'text-yellow-600 font-medium' : ''}
-                    ${!isCtExpired(vehicule.date_prochain_ct) && !isCtExpiringSoon(vehicule.date_prochain_ct) ? 'text-gray-600' : ''}
-                  `}>
-                    CT : {vehicule.date_prochain_ct ? new Date(vehicule.date_prochain_ct).toLocaleDateString('fr-FR') : 'Non renseigné'}
-                    {isCtExpired(vehicule.date_prochain_ct) && ' ⚠️ Expiré'}
-                    {isCtExpiringSoon(vehicule.date_prochain_ct) && ' ⚠️ < 30j'}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {vehicules.map(vehicule => {
+            const ctStatus = getCtStatus(vehicule.date_prochain_ct);
+            
+            return (
+              <div 
+                key={vehicule.id} 
+                className={`bg-white rounded-xl border p-4 hover:shadow-md transition-shadow ${
+                  ctStatus.status === 'urgent' || ctStatus.status === 'expired' 
+                    ? 'border-orange-200' 
+                    : ''
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">🚐</span>
+                    <div>
+                      <p className="font-bold text-gray-900">{vehicule.immatriculation}</p>
+                      <p className="text-sm text-gray-500">{vehicule.marque} {vehicule.modele}</p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    ctStatus.status === 'expired' ? 'bg-red-100 text-red-700 animate-pulse' :
+                    ctStatus.status === 'urgent' ? 'bg-orange-100 text-orange-700 animate-pulse' :
+                    ctStatus.status === 'soon' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-green-100 text-green-700'
+                  }`}>
+                    {ctStatus.label}
                   </span>
                 </div>
-                {vehicule.techniciens && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <User className="w-4 h-4" />
-                    <span>{vehicule.techniciens.prenom} {vehicule.techniciens.nom}</span>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Affecté à</span>
+                    <span className="font-medium">
+                      {vehicule.technicien 
+                        ? `${vehicule.technicien.prenom} ${vehicule.technicien.nom}` 
+                        : 'Non affecté'}
+                    </span>
                   </div>
-                )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Kilométrage</span>
+                    <span>{vehicule.km_actuel?.toLocaleString() || '-'} km</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Prochain CT</span>
+                    <span className={ctStatus.status !== 'ok' ? `text-${ctStatus.color}-600 font-medium` : ''}>
+                      {vehicule.date_prochain_ct 
+                        ? new Date(vehicule.date_prochain_ct).toLocaleDateString('fr-FR')
+                        : '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Assurance</span>
+                    <span>
+                      {vehicule.assurance_echeance 
+                        ? new Date(vehicule.assurance_echeance).toLocaleDateString('fr-FR')
+                        : '-'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 border-t pt-3 mt-3">
+                  <button 
+                    onClick={() => handleEdit(vehicule)}
+                    className="flex-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-medium"
+                  >
+                    Modifier
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(vehicule)}
+                    className="px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg text-sm"
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal Création/Édition */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b sticky top-0 bg-white">
               <h2 className="text-xl font-bold">
                 {editingVehicule ? 'Modifier le véhicule' : 'Nouveau véhicule'}
               </h2>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Immatriculation *
-                </label>
-                <input
-                  type="text"
-                  value={formData.immatriculation}
-                  onChange={(e) => setFormData({ ...formData, immatriculation: e.target.value.toUpperCase() })}
-                  placeholder="AB-123-CD"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                />
-              </div>
+            
+            <div className="p-6 space-y-4">
+              {/* Identification */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Marque</label>
-                  <input
-                    type="text"
-                    value={formData.marque}
-                    onChange={(e) => setFormData({ ...formData, marque: e.target.value })}
-                    placeholder="Renault"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  <label className="block text-sm font-medium mb-1">Immatriculation *</label>
+                  <input 
+                    type="text" 
+                    value={form.immatriculation}
+                    onChange={(e) => setForm({...form, immatriculation: e.target.value.toUpperCase()})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    placeholder="AB-123-CD"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Modèle</label>
-                  <input
-                    type="text"
-                    value={formData.modele}
-                    onChange={(e) => setFormData({ ...formData, modele: e.target.value })}
-                    placeholder="Kangoo"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                  />
+                  <label className="block text-sm font-medium mb-1">Type</label>
+                  <select 
+                    value={form.type}
+                    onChange={(e) => setForm({...form, type: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="utilitaire">Utilitaire</option>
+                    <option value="fourgon">Fourgon</option>
+                    <option value="camionnette">Camionnette</option>
+                    <option value="berline">Berline</option>
+                    <option value="autre">Autre</option>
+                  </select>
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date mise en circulation</label>
-                  <input
-                    type="date"
-                    value={formData.date_mise_circulation}
-                    onChange={(e) => setFormData({ ...formData, date_mise_circulation: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  <label className="block text-sm font-medium mb-1">Marque</label>
+                  <input 
+                    type="text" 
+                    value={form.marque}
+                    onChange={(e) => setForm({...form, marque: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Renault, Peugeot..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kilométrage actuel</label>
-                  <input
-                    type="number"
-                    value={formData.km_actuel}
-                    onChange={(e) => setFormData({ ...formData, km_actuel: parseInt(e.target.value) })}
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  <label className="block text-sm font-medium mb-1">Modèle</label>
+                  <input 
+                    type="text" 
+                    value={form.modele}
+                    onChange={(e) => setForm({...form, modele: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Kangoo, Partner..."
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prochain contrôle technique</label>
-                <input
-                  type="date"
-                  value={formData.date_prochain_ct}
-                  onChange={(e) => setFormData({ ...formData, date_prochain_ct: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                />
+
+              {/* Dates */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">📅 Dates</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Date mise en circulation</label>
+                    <input 
+                      type="date" 
+                      value={form.date_mise_circulation}
+                      onChange={(e) => setForm({...form, date_mise_circulation: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Date d'achat</label>
+                    <input 
+                      type="date" 
+                      value={form.date_achat}
+                      onChange={(e) => setForm({...form, date_achat: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Technicien attribué</label>
-                <select
-                  value={formData.technicien_id}
-                  onChange={(e) => setFormData({ ...formData, technicien_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="">-- Non attribué --</option>
-                  {techniciens.map((tech) => (
-                    <option key={tech.id} value={tech.id}>
-                      {tech.prenom} {tech.nom}
-                    </option>
-                  ))}
-                </select>
+
+              {/* Kilométrage */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">📊 Kilométrage</h3>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Kilométrage actuel</label>
+                  <input 
+                    type="number" 
+                    value={form.km_actuel || ''}
+                    onChange={(e) => setForm({...form, km_actuel: e.target.value ? parseInt(e.target.value) : null})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    placeholder="52340"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+
+              {/* Contrôle technique */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">🔧 Contrôle technique</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Dernier CT</label>
+                    <input 
+                      type="date" 
+                      value={form.date_controle_technique}
+                      onChange={(e) => setForm({...form, date_controle_technique: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Prochain CT</label>
+                    <input 
+                      type="date" 
+                      value={form.date_prochain_ct}
+                      onChange={(e) => setForm({...form, date_prochain_ct: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Assurance */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">🛡️ Assurance</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">N° Police</label>
+                    <input 
+                      type="text" 
+                      value={form.assurance_numero}
+                      onChange={(e) => setForm({...form, assurance_numero: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Échéance</label>
+                    <input 
+                      type="date" 
+                      value={form.assurance_echeance}
+                      onChange={(e) => setForm({...form, assurance_echeance: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Affectation */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">👷 Affectation</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Technicien</label>
+                    <select 
+                      value={form.technicien_id}
+                      onChange={(e) => setForm({...form, technicien_id: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">-- Non affecté --</option>
+                      {techniciens.map(t => (
+                        <option key={t.id} value={t.id}>{t.prenom} {t.nom}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Statut</label>
+                    <select 
+                      value={form.statut}
+                      onChange={(e) => setForm({...form, statut: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                    >
+                      {STATUTS.map(s => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="border-t pt-4 mt-4">
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea 
+                  value={form.notes}
+                  onChange={(e) => setForm({...form, notes: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  placeholder="Notes internes..."
                 />
               </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg hover:from-red-600 hover:to-orange-600"
-                >
-                  {editingVehicule ? 'Modifier' : 'Créer'}
-                </button>
-              </div>
-            </form>
+            </div>
+
+            <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-white">
+              <button 
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+              >
+                {editingVehicule ? 'Enregistrer' : 'Créer le véhicule'}
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-export default VehiculesPage;
+}
