@@ -393,7 +393,7 @@ const AlerteItem = ({ alerte, onClick }) => {
 // ============================================================
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { user, organisation } = useAuth();
+  const { user, userData, orgId, orgSettings } = useAuth();
   
   // États
   const [loading, setLoading] = useState(true);
@@ -417,17 +417,14 @@ export default function DashboardPage() {
     impayesMontant: 0,
     caMois: 0
   });
-  const [userData, setUserData] = useState(null);
-
   // ============================================================
   // CHARGEMENT DES DONNÉES
   // ============================================================
   const loadDashboardData = async () => {
-    if (!organisation?.id) return;
-    
+    if (!orgId) return;
+
     try {
       setRefreshing(true);
-      const orgId = organisation.id;
 
       // 1. Charger les statistiques globales en parallèle
       const [
@@ -436,16 +433,14 @@ export default function DashboardPage() {
         techniciensRes,
         vehiculesRes,
         contratsRes,
-        alertesRes,
-        userRes
+        alertesRes
       ] = await Promise.all([
         supabase.from('clients').select('id', { count: 'exact', head: true }).eq('organisation_id', orgId).eq('actif', true),
         supabase.from('sites').select('id', { count: 'exact', head: true }).eq('organisation_id', orgId).eq('actif', true),
         supabase.from('techniciens').select('id', { count: 'exact', head: true }).eq('organisation_id', orgId).eq('actif', true),
         supabase.from('vehicules').select('id', { count: 'exact', head: true }).eq('organisation_id', orgId),
         supabase.from('contrats').select('id', { count: 'exact', head: true }).eq('organisation_id', orgId).eq('statut', 'actif'),
-        supabase.from('alertes').select('id', { count: 'exact', head: true }).eq('organisation_id', orgId).eq('statut', 'nouvelle'),
-        supabase.from('utilisateurs').select('nom, prenom, role').eq('auth_id', user?.id).single()
+        supabase.from('alertes').select('id', { count: 'exact', head: true }).eq('organisation_id', orgId).eq('statut', 'nouvelle')
       ]);
 
       setStats({
@@ -456,10 +451,6 @@ export default function DashboardPage() {
         contrats: contratsRes.count || 0,
         alertes: alertesRes.count || 0
       });
-
-      if (userRes.data) {
-        setUserData(userRes.data);
-      }
 
       // 2. Charger les stats par module (maintenances)
       const modulesData = {};
@@ -688,7 +679,7 @@ export default function DashboardPage() {
   // Charger les données au montage
   useEffect(() => {
     loadDashboardData();
-  }, [organisation?.id]);
+  }, [orgId]);
 
   // ============================================================
   // CALCULS DÉRIVÉS
@@ -735,7 +726,7 @@ export default function DashboardPage() {
                 {greeting}, {userData?.prenom || 'Admin'} 👋
               </h1>
               <p className="text-slate-300 mt-1">
-                {organisation?.nom || 'Easy Sécurité'} • 
+                {orgSettings?.nom || 'Easy Sécurité'} • 
                 {new Date().toLocaleDateString('fr-FR', { 
                   weekday: 'long', 
                   day: 'numeric', 
