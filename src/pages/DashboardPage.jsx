@@ -454,10 +454,6 @@ export default function DashboardPage() {
         alertes: alertesRes.count || 0
       });
 
-      if (userRes.data) {
-        setUserData(userRes.data);
-      }
-
       // 2. Charger les stats par module (maintenances)
       const modulesData = {};
       for (const module of Object.keys(MODULES_CONFIG)) {
