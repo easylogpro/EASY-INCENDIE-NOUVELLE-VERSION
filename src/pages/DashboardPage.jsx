@@ -26,7 +26,7 @@ import {
   Wind,
   DoorOpen,
   Lightbulb,
-  FireExtinguisher,
+  Flame as FireExtinguisher,
   Droplets,
   CircleDot,
   Phone,
