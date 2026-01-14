@@ -395,6 +395,43 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   FORMULAIRES DANS CONTEXTE CLAIR (modales bg-white)
+   Fix: texte blanc sur fond blanc = invisible
+   ═══════════════════════════════════════════════════════════════════ */
+.bg-white input,
+.bg-white select,
+.bg-white textarea,
+.bg-white label {
+  color: #1f2937 !important; /* gray-800 */
+}
+
+.bg-white input::placeholder,
+.bg-white textarea::placeholder {
+  color: #9ca3af !important; /* gray-400 */
+}
+
+.bg-white input:focus,
+.bg-white select:focus,
+.bg-white textarea:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.bg-white h2,
+.bg-white h3,
+.bg-white p {
+  color: #111827 !important; /* gray-900 */
+}
+
+.bg-white .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.bg-white .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    BADGES
    ═══════════════════════════════════════════════════════════════════ */
 .badge {
