@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for commit in 7ea70b7 5d89592 40a0713)",
+      "Bash(do echo \"=== $commit ===\")",
+      "Bash(done)"
+    ]
+  }
+}

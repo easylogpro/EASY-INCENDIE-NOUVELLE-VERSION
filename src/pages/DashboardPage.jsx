@@ -416,7 +416,6 @@ export default function DashboardPage() {
     impayesMontant: 0,
     caMois: 0
   });
-  const [userData, setUserData] = useState(null);
 
   // ============================================================
   // CHARGEMENT DES DONNÉES
