@@ -102,50 +102,17 @@ const DashboardPage = () => {
         .eq("organisation_id", orgId)
         .maybeSingle();
 
-      if (error) {
-        // Erreur RLS ou autre - on log mais on ne force PAS l'onboarding
-        console.error("Erreur checkOnboarding:", error);
-        // On essaie de créer un enregistrement s'il n'existe pas
-        if (error.code === 'PGRST116' || error.message?.includes('no rows')) {
-          // Pas de ligne trouvée, on essaie d'en créer une
-          const { error: insertError } = await supabase
-            .from("onboarding_progress")
-            .insert({ organisation_id: orgId, step_profil: false, completed: false });
-          
-          if (!insertError) {
-            setShowOnboarding(true);
-          }
-        }
-        return;
-      }
-
-      // Si pas de data, on crée l'enregistrement
-      if (!data) {
-        console.log("Pas d'onboarding_progress, création...");
-        const { error: insertError } = await supabase
-          .from("onboarding_progress")
-          .insert({ organisation_id: orgId, step_profil: false, completed: false });
-        
-        if (!insertError) {
-          setShowOnboarding(true);
-        }
-        return;
-      }
+      if (error) throw error;
 
       setOnboardingProgress(data);
-      
-      // Vérifier si complété
-      const isCompleted = !!(data?.completed);
+      const isCompleted = !!(data?.completed || data?.onboarding_complete);
       if (!isCompleted) {
         setShowOnboarding(true);
       } else {
         setShowOnboarding(false);
       }
     } catch (e) {
-      // IMPORTANT: On ne force PAS l'onboarding sur erreur catch
-      // Sinon ça crée une boucle infinie
-      console.error("Erreur catch checkOnboarding:", e);
-      // On laisse showOnboarding à false par défaut
+      setShowOnboarding(true);
     }
   };
 
