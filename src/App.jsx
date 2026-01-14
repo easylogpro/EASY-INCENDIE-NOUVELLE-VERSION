@@ -151,10 +151,11 @@ function App() {
             <Route path="/complete-profile" element={<ProfileRoute><CompleteProfilePage /></ProfileRoute>} />
 
             {/* ========================================
-                DEMO + SUBSCRIBE (protégés, sans layout)
+                DEMO -> Redirige vers le vrai Dashboard
+                SUBSCRIBE (protégé, sans layout)
             ======================================== */}
-            <Route path="/demo" element={<ProtectedRoute><DemoPage /></ProtectedRoute>} />
-            <Route path="/demo-expired" element={<ProtectedRoute><DemoExpiredPage /></ProtectedRoute>} />
+            <Route path="/demo" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/demo-expired" element={<Navigate to="/subscribe" replace />} />
             <Route path="/subscribe" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
 
             {/* ========================================

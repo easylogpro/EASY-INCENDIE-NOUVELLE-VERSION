@@ -138,11 +138,9 @@ export const AuthProvider = ({ children }) => {
 
         if (cancelled) return;
 
+        // IMPORTANT: on débloque l'UI tout de suite
         if (session?.user) {
           setUser(session.user);
-          // ATTENDRE que loadUserData termine AVANT de débloquer l'UI
-          // pour que needsProfile soit correct pour le routing
-          await loadUserData(session.user);
         } else {
           setUser(null);
           setUserData(null);
@@ -151,8 +149,12 @@ export const AuthProvider = ({ children }) => {
           setNeedsProfile(false);
         }
 
-        // Débloquer l'UI seulement APRÈS avoir vérifié le profil
         safeSetLoadingFalse();
+
+        // On charge le profil en arrière-plan (ne bloque plus l'écran)
+        if (session?.user) {
+          void loadUserData(session.user);
+        }
       } catch (e) {
         console.error("init auth crash:", e);
         if (!cancelled) safeSetLoadingFalse();
@@ -163,13 +165,15 @@ export const AuthProvider = ({ children }) => {
 
     const {
       data: { subscription: authSub },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
+
+      // On débloque l'UI immédiatement (important)
+      safeSetLoadingFalse();
 
       if (session?.user) {
         setUser(session.user);
-        // ATTENDRE que loadUserData termine pour le routing correct
-        await loadUserData(session.user);
+        void loadUserData(session.user);
       } else {
         setUser(null);
         setUserData(null);
@@ -177,9 +181,6 @@ export const AuthProvider = ({ children }) => {
         setSubscription(null);
         setNeedsProfile(false);
       }
-
-      // Débloquer l'UI seulement APRÈS
-      safeSetLoadingFalse();
     });
 
     return () => {
