@@ -180,6 +180,13 @@ export const AuthProvider = ({ children }) => {
 
       console.log("Auth event:", event);
 
+      // ============================================================
+      // FIX CRITIQUE: Remettre loading=true IMMÉDIATEMENT
+      // Sinon loading reste false pendant loadUserData et 
+      // AuthCallbackPage navigue avant que needsProfile soit défini
+      // ============================================================
+      setLoading(true);
+
       if (session?.user) {
         setUser(session.user);
         
