@@ -1,0 +1,10 @@
+ON public.abonnements
+FOR SELECT
+TO authenticated
+USING (
+  organisation_id IN (
+    SELECT organisation_id
+    FROM public.utilisateurs
+    WHERE auth_id = auth.uid()
+  )
+);

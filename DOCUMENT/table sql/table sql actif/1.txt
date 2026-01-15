@@ -1,0 +1,280 @@
+-- ============================================
+-- EASY INCENDIE - RLS COMPLET
+-- Pour tes 43 tables exactes
+-- ============================================
+
+-- ============================================
+-- 1. ORGANISATIONS (table principale)
+-- ============================================
+ALTER TABLE organisations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "org_insert" ON organisations;
+DROP POLICY IF EXISTS "org_select" ON organisations;
+DROP POLICY IF EXISTS "org_update" ON organisations;
+CREATE POLICY "org_insert" ON organisations FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "org_select" ON organisations FOR SELECT TO authenticated USING (id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+CREATE POLICY "org_update" ON organisations FOR UPDATE TO authenticated USING (id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- ============================================
+-- 2. UTILISATEURS
+-- ============================================
+ALTER TABLE utilisateurs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "user_insert" ON utilisateurs;
+DROP POLICY IF EXISTS "user_select" ON utilisateurs;
+DROP POLICY IF EXISTS "user_update" ON utilisateurs;
+CREATE POLICY "user_insert" ON utilisateurs FOR INSERT TO authenticated WITH CHECK (auth_id = auth.uid());
+CREATE POLICY "user_select" ON utilisateurs FOR SELECT TO authenticated USING (auth_id = auth.uid() OR organisation_id IN (SELECT organisation_id FROM utilisateurs u2 WHERE u2.auth_id = auth.uid()));
+CREATE POLICY "user_update" ON utilisateurs FOR UPDATE TO authenticated USING (auth_id = auth.uid());
+
+-- ============================================
+-- 3-43. TOUTES LES AUTRES TABLES AVEC organisation_id
+-- ============================================
+
+-- ABONNEMENTS
+ALTER TABLE abonnements ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_abonnements" ON abonnements;
+CREATE POLICY "rls_abonnements" ON abonnements FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- ALERTES
+ALTER TABLE alertes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_alertes" ON alertes;
+CREATE POLICY "rls_alertes" ON alertes FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- ASTREINTES
+ALTER TABLE astreintes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_astreintes" ON astreintes;
+CREATE POLICY "rls_astreintes" ON astreintes FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- CLIENTS
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_clients" ON clients;
+CREATE POLICY "rls_clients" ON clients FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- CONTRATS
+ALTER TABLE contrats ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_contrats" ON contrats;
+CREATE POLICY "rls_contrats" ON contrats FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- DEMANDES_PROSPECTS
+ALTER TABLE demandes_prospects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_demandes_prospects" ON demandes_prospects;
+CREATE POLICY "rls_demandes_prospects" ON demandes_prospects FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- DEMO_SESSIONS
+ALTER TABLE demo_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_demo_sessions" ON demo_sessions;
+CREATE POLICY "rls_demo_sessions" ON demo_sessions FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- DEVIS
+ALTER TABLE devis ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_devis" ON devis;
+CREATE POLICY "rls_devis" ON devis FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- EMAIL_LOGS
+ALTER TABLE email_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_email_logs" ON email_logs;
+CREATE POLICY "rls_email_logs" ON email_logs FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- EQUIPEMENTS_BAES
+ALTER TABLE equipements_baes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_equipements_baes" ON equipements_baes;
+CREATE POLICY "rls_equipements_baes" ON equipements_baes FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- EQUIPEMENTS_CMP
+ALTER TABLE equipements_cmp ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_equipements_cmp" ON equipements_cmp;
+CREATE POLICY "rls_equipements_cmp" ON equipements_cmp FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- EQUIPEMENTS_COLSEC
+ALTER TABLE equipements_colsec ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_equipements_colsec" ON equipements_colsec;
+CREATE POLICY "rls_equipements_colsec" ON equipements_colsec FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- EQUIPEMENTS_DSF
+ALTER TABLE equipements_dsf ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_equipements_dsf" ON equipements_dsf;
+CREATE POLICY "rls_equipements_dsf" ON equipements_dsf FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- EQUIPEMENTS_EXT
+ALTER TABLE equipements_ext ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_equipements_ext" ON equipements_ext;
+CREATE POLICY "rls_equipements_ext" ON equipements_ext FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- EQUIPEMENTS_RIA
+ALTER TABLE equipements_ria ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_equipements_ria" ON equipements_ria;
+CREATE POLICY "rls_equipements_ria" ON equipements_ria FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- EQUIPEMENTS_SSI
+ALTER TABLE equipements_ssi ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_equipements_ssi" ON equipements_ssi;
+CREATE POLICY "rls_equipements_ssi" ON equipements_ssi FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- FACTURES
+ALTER TABLE factures ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_factures" ON factures;
+CREATE POLICY "rls_factures" ON factures FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- FICHIERS
+ALTER TABLE fichiers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_fichiers" ON fichiers;
+CREATE POLICY "rls_fichiers" ON fichiers FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- GROUPES
+ALTER TABLE groupes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_groupes" ON groupes;
+CREATE POLICY "rls_groupes" ON groupes FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- LIGNES_DEVIS (pas de organisation_id, accès via devis_id)
+ALTER TABLE lignes_devis ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_lignes_devis" ON lignes_devis;
+CREATE POLICY "rls_lignes_devis" ON lignes_devis FOR ALL TO authenticated 
+USING (devis_id IN (SELECT id FROM devis WHERE organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid())));
+
+-- LIGNES_FACTURES (pas de organisation_id, accès via facture_id)
+ALTER TABLE lignes_factures ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_lignes_factures" ON lignes_factures;
+CREATE POLICY "rls_lignes_factures" ON lignes_factures FOR ALL TO authenticated 
+USING (facture_id IN (SELECT id FROM factures WHERE organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid())));
+
+-- LOGS_ACTIVITE
+ALTER TABLE logs_activite ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_logs_activite" ON logs_activite;
+CREATE POLICY "rls_logs_activite" ON logs_activite FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- LOGS_IMPORTS_EXPORTS
+ALTER TABLE logs_imports_exports ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_logs_imports_exports" ON logs_imports_exports;
+CREATE POLICY "rls_logs_imports_exports" ON logs_imports_exports FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MAINTENANCES_BAES
+ALTER TABLE maintenances_baes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_maintenances_baes" ON maintenances_baes;
+CREATE POLICY "rls_maintenances_baes" ON maintenances_baes FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MAINTENANCES_CMP
+ALTER TABLE maintenances_cmp ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_maintenances_cmp" ON maintenances_cmp;
+CREATE POLICY "rls_maintenances_cmp" ON maintenances_cmp FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MAINTENANCES_COLSEC
+ALTER TABLE maintenances_colsec ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_maintenances_colsec" ON maintenances_colsec;
+CREATE POLICY "rls_maintenances_colsec" ON maintenances_colsec FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MAINTENANCES_DSF_MECANIQUE
+ALTER TABLE maintenances_dsf_mecanique ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_maintenances_dsf_mecanique" ON maintenances_dsf_mecanique;
+CREATE POLICY "rls_maintenances_dsf_mecanique" ON maintenances_dsf_mecanique FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MAINTENANCES_DSF_NATUREL
+ALTER TABLE maintenances_dsf_naturel ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_maintenances_dsf_naturel" ON maintenances_dsf_naturel;
+CREATE POLICY "rls_maintenances_dsf_naturel" ON maintenances_dsf_naturel FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MAINTENANCES_EXT
+ALTER TABLE maintenances_ext ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_maintenances_ext" ON maintenances_ext;
+CREATE POLICY "rls_maintenances_ext" ON maintenances_ext FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MAINTENANCES_RIA
+ALTER TABLE maintenances_ria ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_maintenances_ria" ON maintenances_ria;
+CREATE POLICY "rls_maintenances_ria" ON maintenances_ria FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MAINTENANCES_SSI
+ALTER TABLE maintenances_ssi ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_maintenances_ssi" ON maintenances_ssi;
+CREATE POLICY "rls_maintenances_ssi" ON maintenances_ssi FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- MISES_EN_SERVICE_SSI
+ALTER TABLE mises_en_service_ssi ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_mises_en_service_ssi" ON mises_en_service_ssi;
+CREATE POLICY "rls_mises_en_service_ssi" ON mises_en_service_ssi FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- OBSERVATIONS
+ALTER TABLE observations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_observations" ON observations;
+CREATE POLICY "rls_observations" ON observations FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- ONBOARDING_PROGRESS
+ALTER TABLE onboarding_progress ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_onboarding_progress" ON onboarding_progress;
+CREATE POLICY "rls_onboarding_progress" ON onboarding_progress FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- PARAMETRES
+ALTER TABLE parametres ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_parametres" ON parametres;
+CREATE POLICY "rls_parametres" ON parametres FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- SAV
+ALTER TABLE sav ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_sav" ON sav;
+CREATE POLICY "rls_sav" ON sav FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- SITES
+ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_sites" ON sites;
+CREATE POLICY "rls_sites" ON sites FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- SOUS_TRAITANTS
+ALTER TABLE sous_traitants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_sous_traitants" ON sous_traitants;
+CREATE POLICY "rls_sous_traitants" ON sous_traitants FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- TECHNICIENS
+ALTER TABLE techniciens ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_techniciens" ON techniciens;
+CREATE POLICY "rls_techniciens" ON techniciens FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- TRAVAUX
+ALTER TABLE travaux ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_travaux" ON travaux;
+CREATE POLICY "rls_travaux" ON travaux FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- VEHICULES
+ALTER TABLE vehicules ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rls_vehicules" ON vehicules;
+CREATE POLICY "rls_vehicules" ON vehicules FOR ALL TO authenticated 
+USING (organisation_id IN (SELECT organisation_id FROM utilisateurs WHERE auth_id = auth.uid()));
+
+-- ============================================
+-- FIN - 43 TABLES AVEC RLS
+-- ============================================

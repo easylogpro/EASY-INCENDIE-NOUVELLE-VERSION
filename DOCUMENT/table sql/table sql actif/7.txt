@@ -1,0 +1,11 @@
+create policy "abonnements_select_own_org"
+on public.abonnements
+for select
+to authenticated
+using (
+  organisation_id in (
+    select organisation_id
+    from public.utilisateurs
+    where auth_id = auth.uid()
+  )
+);

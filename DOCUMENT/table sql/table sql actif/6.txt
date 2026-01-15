@@ -1,0 +1,23 @@
+-- 0) (Optionnel) Vérifier que RLS est bien actif
+-- select relrowsecurity from pg_class where relname = 'demandes_prospects';
+
+-- 1) Activer RLS (au cas où, ça ne casse rien si déjà activé)
+alter table public.demandes_prospects enable row level security;
+
+-- 2) Supprimer les anciennes policies si elles existent (évite doublons)
+drop policy if exists "anon_insert_demandes_prospects" on public.demandes_prospects;
+drop policy if exists "auth_select_own_demandes_prospects" on public.demandes_prospects;
+
+-- 3) Autoriser INSERT pour les visiteurs (anon)
+create policy "anon_insert_demandes_prospects"
+on public.demandes_prospects
+for insert
+to anon
+with check (true);
+
+-- 4) Autoriser SELECT pour le user connecté, seulement sur sa propre ligne (par email)
+create policy "auth_select_own_demandes_prospects"
+on public.demandes_prospects
+for select
+to authenticated
+using (email = (auth.jwt() ->> 'email'));
