@@ -7,9 +7,10 @@
 // ============================================================
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { calculatePrice, getAvailableReports } from '../utils/pricingAlgorithm';
 import {
   Building2,
   MapPin,
@@ -40,7 +41,8 @@ import {
   CalendarDays,
   BadgeAlert,
   ArrowUpRight,
-  Loader2
+  Loader2,
+  Zap
 } from 'lucide-react';
 
 // ============================================================
@@ -392,7 +394,8 @@ const AlerteItem = ({ alerte, onClick }) => {
 // ============================================================
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { user, userData, orgId, orgSettings } = useAuth();
+  const location = useLocation();
+  const { user, userData, orgId, orgSettings, subscription } = useAuth();
   
   // États
   const [loading, setLoading] = useState(true);
@@ -416,6 +419,41 @@ export default function DashboardPage() {
     impayesMontant: 0,
     caMois: 0
   });
+
+  // Prospect pour demo/paiement
+  const [prospect, setProspect] = useState(null);
+
+  // Charger le prospect
+  useEffect(() => {
+    const loadProspect = async () => {
+      try {
+        if (!user?.email) return;
+        const { data, error } = await supabase
+          .from("demandes_prospects")
+          .select("*")
+          .eq("email", user.email)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!error) setProspect(data || null);
+      } catch (e) {
+        console.error("Erreur loadProspect:", e);
+      }
+    };
+    loadProspect();
+  }, [user?.email]);
+
+  // Calcul pricing pour prospect
+  const prospectComputed = useMemo(() => {
+    if (!prospect) return null;
+    const domains = prospect.domaines_demandes || ["ssi"];
+    const profile = prospect.profil_demande || "mainteneur";
+    const addons = prospect.options_selectionnees?.addons || [];
+    const userCount = prospect.nb_utilisateurs || "1";
+    const pricing = calculatePrice(domains, userCount, addons, profile);
+    const reports = getAvailableReports(profile, domains);
+    return { domains, profile, addons, userCount, pricing, reports };
+  }, [prospect]);
 
   // ============================================================
   // CHARGEMENT DES DONNÉES
@@ -766,6 +804,51 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* BLOC DEMO/PAIEMENT - Affiché si pas d'abonnement */}
+      {!subscription && prospectComputed && (
+        <div className="max-w-7xl mx-auto px-6 pt-6">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <p className="text-white/80 text-sm">Avant paiement</p>
+              <h2 className="text-2xl font-black">Votre configuration est prête</h2>
+              <p className="text-white/90 mt-2">
+                Tarif: <span className="font-black">{prospectComputed.pricing?.finalPrice || 0}€</span> le 1er mois (-10%),
+                puis {prospectComputed.pricing?.totalPrice || 0}€/mois
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {(prospectComputed.domains || []).map((d) => (
+                  <span key={d} className="px-3 py-1 bg-white/15 rounded-full text-sm font-semibold">
+                    {d.toUpperCase()}
+                  </span>
+                ))}
+                <span className="px-3 py-1 bg-white/15 rounded-full text-sm font-semibold">
+                  {prospectComputed.userCount} utilisateur(s)
+                </span>
+              </div>
+              <p className="text-white/80 text-sm mt-3">
+                Démo: 3 minutes en lecture seule (sans création de rapports)
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => navigate("/demo", { state: { request: prospect, pricing: prospectComputed.pricing, reports: prospectComputed.reports } })}
+                className="flex items-center gap-2 bg-white text-blue-700 px-5 py-3 rounded-xl font-bold hover:bg-gray-100 transition"
+              >
+                <Clock className="w-5 h-5" />
+                Lancer la démo
+              </button>
+              <button
+                onClick={() => navigate("/subscribe", { state: { request: prospect, pricing: prospectComputed.pricing, reports: prospectComputed.reports } })}
+                className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-orange-500 px-5 py-3 rounded-xl font-bold hover:from-red-600 hover:to-orange-600 transition shadow-lg"
+              >
+                <Zap className="w-5 h-5" />
+                Passer au paiement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* ============================================================ */}
