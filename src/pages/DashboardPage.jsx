@@ -26,7 +26,7 @@ import {
   Wind,
   DoorOpen,
   Lightbulb,
-  FireExtinguisher,
+  Flame,
   Droplets,
   CircleDot,
   Phone,
@@ -83,7 +83,7 @@ const MODULES_CONFIG = {
   EXT: { 
     nom: 'EXT', 
     fullName: 'Extincteurs',
-    icon: FireExtinguisher, 
+    icon: Flame, 
     color: 'bg-rose-500',
     lightBg: 'bg-rose-50',
     textColor: 'text-rose-700'
