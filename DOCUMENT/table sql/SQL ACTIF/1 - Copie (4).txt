@@ -1,0 +1,64 @@
+-- 0) Helper anti-récursion
+create or replace function public.get_my_org_id()
+returns uuid
+language sql
+security definer
+set search_path = public
+as $$
+  select organisation_id
+  from public.utilisateurs
+  where auth_id = auth.uid()
+  limit 1
+$$;
+
+-- 1) ORGANISATIONS
+alter table public.organisations enable row level security;
+
+drop policy if exists org_insert on public.organisations;
+drop policy if exists org_select on public.organisations;
+drop policy if exists org_update on public.organisations;
+
+create policy org_insert
+on public.organisations
+for insert
+to authenticated
+with check (true);
+
+create policy org_select
+on public.organisations
+for select
+to authenticated
+using (id = public.get_my_org_id());
+
+create policy org_update
+on public.organisations
+for update
+to authenticated
+using (id = public.get_my_org_id())
+with check (id = public.get_my_org_id());
+
+-- 2) UTILISATEURS
+alter table public.utilisateurs enable row level security;
+
+drop policy if exists user_insert on public.utilisateurs;
+drop policy if exists user_select on public.utilisateurs;
+drop policy if exists user_update on public.utilisateurs;
+
+create policy user_insert
+on public.utilisateurs
+for insert
+to authenticated
+with check (auth_id = auth.uid());
+
+create policy user_select
+on public.utilisateurs
+for select
+to authenticated
+using (auth_id = auth.uid());
+
+create policy user_update
+on public.utilisateurs
+for update
+to authenticated
+using (auth_id = auth.uid())
+with check (auth_id = auth.uid());

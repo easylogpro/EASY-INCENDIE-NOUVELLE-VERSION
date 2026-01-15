@@ -1,6 +1,6 @@
 // src/pages/SubscriptionPage.jsx
-// VERSION CORRIGÉE - Utilise RPC create_subscription (bypass RLS)
-// Garde les imports de pricing de l'autre IA
+// VERSION CORRIGÉE - Fallback BDD si location.state est vide
+// Fix: Les modules ne s'affichaient pas si l'utilisateur arrivait depuis un nouvel onglet
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -16,14 +16,20 @@ import { pricingData, availableAddons } from '../data/pricingData';
 const SubscriptionPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userData, refreshSubscription, refreshUserData } = useAuth();
+  const { user, userData, refreshSubscription, refreshUserData } = useAuth();
   
-  // Récupérer les données de la demande depuis la navigation ou la démo
-  const request = location.state?.request || location.state?.demoRequest || {};
+  // ============================================================
+  // FIX: Utiliser un state pour request au lieu d'une constante
+  // Permet de charger depuis la BDD si location.state est vide
+  // ============================================================
+  const [request, setRequest] = useState(
+    location.state?.request || location.state?.demoRequest || null
+  );
   const fromDemo = location.state?.fromDemo || false;
   const demoEndCallback = location.state?.demoEndCallback;
   
   const [loading, setLoading] = useState(false);
+  const [loadingRequest, setLoadingRequest] = useState(!request); // Loading si pas de request initial
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
   const [paymentInfo, setPaymentInfo] = useState({
@@ -43,8 +49,71 @@ const SubscriptionPage = () => {
   const orgId = userData?.organisation_id;
   const mountedRef = useRef(true);
 
+  // ============================================================
+  // FIX CRITIQUE: Charger depuis demandes_prospects si location.state est vide
+  // Cela arrive quand l'utilisateur ouvre le lien email dans un nouvel onglet
+  // ============================================================
   useEffect(() => {
-    // Calculer le prix basé sur la demande
+    const loadRequestFromDB = async () => {
+      // Si on a déjà les données, pas besoin de charger
+      if (request) {
+        setLoadingRequest(false);
+        return;
+      }
+
+      // Récupérer l'email de l'utilisateur
+      const email = user?.email || userData?.email;
+      if (!email) {
+        console.log("SubscriptionPage: Pas d'email, impossible de charger le prospect");
+        setLoadingRequest(false);
+        return;
+      }
+
+      try {
+        console.log("SubscriptionPage: Chargement prospect depuis BDD pour", email);
+        
+        const { data, error } = await supabase
+          .from('demandes_prospects')
+          .select('*')
+          .eq('email', email)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.error("SubscriptionPage: Erreur chargement prospect:", error);
+        } else if (data) {
+          console.log("SubscriptionPage: Prospect trouvé:", data);
+          setRequest({
+            domaines_demandes: data.domaines_demandes || ['SSI'],
+            profil_demande: data.profil_demande || 'mainteneur',
+            nb_utilisateurs: data.nb_utilisateurs || '1',
+            tarif_calcule: data.tarif_calcule,
+            options_selectionnees: data.options_selectionnees || {},
+            organisation_id: data.organisation_id
+          });
+        } else {
+          console.log("SubscriptionPage: Aucun prospect trouvé, utilisation des valeurs par défaut");
+          setRequest({
+            domaines_demandes: ['SSI'],
+            profil_demande: 'mainteneur',
+            nb_utilisateurs: '1'
+          });
+        }
+      } catch (e) {
+        console.error("SubscriptionPage: Erreur catch:", e);
+      } finally {
+        setLoadingRequest(false);
+      }
+    };
+
+    loadRequestFromDB();
+  }, [user?.email, userData?.email, request]);
+
+  // Calculer le prix basé sur la demande
+  useEffect(() => {
+    if (!request) return;
+    
     const calculatedPricing = computePricing({
       domains: request.domaines || request.modulesInteresses || request.domaines_demandes || [],
       users: request.nb_utilisateurs || request.nombreTechniciens || 1,
@@ -132,10 +201,10 @@ const SubscriptionPage = () => {
         'extincteurs': 'EXT', 'ria': 'RIA', 'colonnes_seches': 'COLSEC'
       };
       
-      const rawDomaines = request.domaines || request.modulesInteresses || request.domaines_demandes || ['SSI'];
+      const rawDomaines = request?.domaines || request?.modulesInteresses || request?.domaines_demandes || ['SSI'];
       const domaines = rawDomaines.map(d => domainesMap[d?.toLowerCase()] || d?.toUpperCase() || 'SSI');
       
-      const nbUtilisateurs = parseInt(request.nb_utilisateurs || request.nombreTechniciens || '1') || 1;
+      const nbUtilisateurs = parseInt(request?.nb_utilisateurs || request?.nombreTechniciens || '1') || 1;
 
       // ========================================
       // APPEL DE LA FONCTION RPC (bypass RLS)
@@ -200,41 +269,56 @@ const SubscriptionPage = () => {
   };
 
   // ============================================================
-  // RENDU
+  // RENDU - Afficher un loader si on charge les données
   // ============================================================
+  if (loadingRequest) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-red-500 mx-auto mb-4" />
+          <p className="text-gray-600">Chargement de votre configuration...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Extraire les domaines pour l'affichage
+  const displayDomaines = request?.domaines_demandes || request?.domaines || request?.modulesInteresses || ['SSI'];
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center">
-              <Flame className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-xl">Easy Sécurité</span>
+      <div className="max-w-5xl mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-full mb-4">
+            <Flame className="w-5 h-5" />
+            <span className="font-semibold">Easy Sécurité</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Lock className="w-4 h-4" />
-            Paiement sécurisé
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Finaliser votre abonnement</h1>
+          <p className="text-gray-600">Accès immédiat à tous vos modules</p>
+          
+          {/* Afficher les domaines sélectionnés */}
+          <div className="flex flex-wrap justify-center gap-2 mt-4">
+            {displayDomaines.map((domain) => (
+              <span 
+                key={domain} 
+                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium"
+              >
+                {domain.toUpperCase()}
+              </span>
+            ))}
           </div>
         </div>
-      </header>
-
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-center mb-2">Activer votre abonnement</h1>
-        <p className="text-gray-600 text-center mb-8">
-          Accédez à toutes les fonctionnalités immédiatement
-        </p>
 
         {error && (
-          <div className="max-w-lg mx-auto mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
             <p className="text-red-700">{error}</p>
           </div>
         )}
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main */}
+          {/* Form */}
           <div className="lg:col-span-2">
             {step === 1 && (
               <div className="bg-white rounded-xl shadow-sm p-6">
@@ -402,7 +486,7 @@ const SubscriptionPage = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-blue-600" />
-                    Jusqu'à {request.nb_utilisateurs || request.nombreTechniciens || 1} utilisateurs
+                    Jusqu'à {request?.nb_utilisateurs || request?.nombreTechniciens || 1} utilisateurs
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-blue-600" />

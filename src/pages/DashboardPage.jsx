@@ -1,11 +1,14 @@
 // src/pages/DashboardPage.jsx
-// Easy Sécurité - Dashboard avec modules selon abonnement
+// VERSION CORRIGÉE - Intègre la vraie démo 3 minutes
+// Fix: La démo utilise le VRAI Dashboard avec les vraies données en lecture seule
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useDemo } from "../contexts/DemoContext";
 import { supabase } from "../config/supabase";
 import OnboardingWizard from "../components/onboarding/OnboardingWizard";
+import LockedFeatureModal from "../components/demo/LockedFeatureModal";
 import { calculatePrice, getAvailableReports } from "../utils/pricingAlgorithm";
 
 import {
@@ -24,6 +27,7 @@ import {
   Settings,
   Flame,
   Clock,
+  Lock,
 } from "lucide-react";
 
 const DashboardPage = () => {
@@ -31,6 +35,20 @@ const DashboardPage = () => {
   const location = useLocation();
 
   const { user, userData, orgId, orgSettings, subscription } = useAuth();
+  
+  // ============================================================
+  // FIX: Intégrer DemoContext pour la vraie démo 3 minutes
+  // ============================================================
+  const { 
+    isDemoMode, 
+    demoExpired, 
+    startDemo, 
+    endDemo,
+    isFeatureLocked,
+    formatTimeRemaining,
+    timeRemaining,
+    DEMO_DURATION
+  } = useDemo();
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingProgress, setOnboardingProgress] = useState(null);
@@ -38,6 +56,9 @@ const DashboardPage = () => {
 
   // Prospect (traçabilité) pour afficher la démo / paiement avant abonnement
   const [prospect, setProspect] = useState(null);
+  
+  // Modal pour les fonctionnalités verrouillées en mode démo
+  const [lockedModal, setLockedModal] = useState({ open: false, feature: "default" });
 
   const justSubscribed = location.state?.subscriptionSuccess;
   const isFirstMonth = location.state?.firstMonth;
@@ -75,6 +96,20 @@ const DashboardPage = () => {
 
     loadProspect();
   }, [user?.email]);
+
+  // ============================================================
+  // FIX: Rediriger vers /subscribe si la démo a expiré
+  // ============================================================
+  useEffect(() => {
+    if (demoExpired && !subscription) {
+      navigate("/subscribe", { 
+        state: { 
+          fromDemo: true, 
+          request: prospect 
+        } 
+      });
+    }
+  }, [demoExpired, subscription, navigate, prospect]);
 
   const loadStats = async () => {
     try {
@@ -134,7 +169,7 @@ const DashboardPage = () => {
     },
   };
 
-  // Calcul pricing + reports à partir du prospect (si pas d’abonnement)
+  // Calcul pricing + reports à partir du prospect (si pas d'abonnement)
   const prospectComputed = useMemo(() => {
     if (!prospect) return null;
 
@@ -149,9 +184,50 @@ const DashboardPage = () => {
     return { domains, profile, addons, userCount, pricing, reports };
   }, [prospect]);
 
+  // ============================================================
+  // FIX: Handler pour démarrer la démo
+  // ============================================================
+  const handleStartDemo = async () => {
+    if (!prospect) return;
+    
+    const success = await startDemo({
+      organisation_id: orgId,
+      email: user?.email,
+      domaines_demandes: prospect.domaines_demandes || ["ssi"],
+      profil_demande: prospect.profil_demande || "mainteneur",
+      nb_utilisateurs: prospect.nb_utilisateurs || "1",
+      tarif_calcule: prospect.tarif_calcule,
+      options_selectionnees: prospect.options_selectionnees || {},
+    });
+    
+    if (success) {
+      console.log("✅ Démo démarrée");
+    }
+  };
+
+  // ============================================================
+  // FIX: Handler pour les fonctionnalités verrouillées
+  // ============================================================
+  const handleLockedFeature = (feature) => {
+    if (isDemoMode && isFeatureLocked(feature)) {
+      setLockedModal({ open: true, feature });
+      return true;
+    }
+    return false;
+  };
+
+  // Navigation avec vérification du mode démo
+  const handleNavigation = (route, feature) => {
+    if (isDemoMode && isFeatureLocked(feature)) {
+      setLockedModal({ open: true, feature });
+    } else {
+      navigate(route);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
-      {/* Message bienvenue si abonnement vient d’être activé */}
+      {/* Message bienvenue si abonnement vient d'être activé */}
       {justSubscribed && (
         <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl p-4 flex items-center gap-4">
           <CheckCircle2 className="w-8 h-8" />
@@ -164,6 +240,47 @@ const DashboardPage = () => {
         </div>
       )}
 
+      {/* ============================================================
+          FIX: Bannière de démo active (VRAI Dashboard en lecture seule)
+          ============================================================ */}
+      {isDemoMode && !subscription && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 bg-white/20 rounded-full ${timeRemaining <= 30 ? 'animate-pulse' : ''}`}>
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold flex items-center gap-2">
+                Mode Démo 
+                <span className="px-2 py-0.5 bg-orange-500 text-xs rounded font-bold">LECTURE SEULE</span>
+              </p>
+              <p className="text-sm opacity-90">
+                Explorez l'interface. Les actions de création sont verrouillées.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <div className="text-xs opacity-75">Temps restant</div>
+              <div className={`text-3xl font-mono font-black ${timeRemaining <= 30 ? 'text-red-300 animate-pulse' : timeRemaining <= 60 ? 'text-orange-300' : 'text-white'}`}>
+                {formatTimeRemaining()}
+              </div>
+            </div>
+            
+            <button
+              onClick={() => navigate("/subscribe", { 
+                state: { fromDemo: true, request: prospect } 
+              })}
+              className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-orange-500 px-5 py-3 rounded-xl font-bold hover:from-red-600 hover:to-orange-600 transition-all shadow-lg"
+            >
+              <Zap className="w-5 h-5" />
+              Souscrire -10%
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -172,16 +289,17 @@ const DashboardPage = () => {
         </div>
 
         <button
-          onClick={() => navigate("/rapports")}
-          className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-red-600 hover:to-orange-600"
+          onClick={() => handleNavigation("/rapports", "create_report")}
+          className={`flex items-center gap-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-red-600 hover:to-orange-600 ${isDemoMode ? 'opacity-75' : ''}`}
         >
           <Plus className="w-4 h-4" />
           Nouveau rapport
+          {isDemoMode && <Lock className="w-3 h-3 ml-1" />}
         </button>
       </div>
 
-      {/* BLOC AVANT PAIEMENT: démo 3 minutes + paiement */}
-      {!subscription && prospectComputed && (
+      {/* BLOC AVANT PAIEMENT: démo 3 minutes + paiement (seulement si pas en mode démo) */}
+      {!subscription && !isDemoMode && prospectComputed && (
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <p className="text-white/80 text-sm">Avant paiement</p>
@@ -209,16 +327,11 @@ const DashboardPage = () => {
           </div>
 
           <div className="flex gap-3">
+            {/* ============================================================
+                FIX: Bouton "Lancer la démo" démarre la vraie démo 3 min
+                ============================================================ */}
             <button
-              onClick={() =>
-                navigate("/demo", {
-                  state: {
-                    request: prospect,
-                    pricing: prospectComputed.pricing,
-                    reports: prospectComputed.reports,
-                  },
-                })
-              }
+              onClick={handleStartDemo}
               className="flex items-center gap-2 bg-white text-blue-700 px-5 py-3 rounded-xl font-bold hover:bg-gray-100 transition"
             >
               <Clock className="w-5 h-5" />
@@ -294,8 +407,12 @@ const DashboardPage = () => {
             <h2 className="text-xl font-bold text-gray-900">Vos modules actifs</h2>
             <p className="text-gray-500 text-sm">{activeDomains.length} domaine(s) selon votre abonnement</p>
           </div>
-          <button onClick={() => navigate("/settings")} className="text-sm text-red-500 hover:text-red-600 font-medium">
+          <button 
+            onClick={() => handleNavigation("/settings", "settings")} 
+            className="text-sm text-red-500 hover:text-red-600 font-medium flex items-center gap-1"
+          >
             Gérer les modules →
+            {isDemoMode && <Lock className="w-3 h-3" />}
           </button>
         </div>
 
@@ -309,7 +426,7 @@ const DashboardPage = () => {
             return (
               <button
                 key={domain}
-                onClick={() => navigate(config.route)}
+                onClick={() => handleNavigation(config.route, "create_report")}
                 className="flex items-center gap-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all text-left group"
               >
                 <div className={`w-12 h-12 ${config.color} rounded-xl flex items-center justify-center`}>
@@ -317,9 +434,15 @@ const DashboardPage = () => {
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-gray-900">{config.label}</p>
-                  <p className="text-sm text-gray-500">Créer un rapport</p>
+                  <p className="text-sm text-gray-500">
+                    {isDemoMode ? "Aperçu uniquement" : "Créer un rapport"}
+                  </p>
                 </div>
-                <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+                {isDemoMode ? (
+                  <Lock className="w-5 h-5 text-orange-500" />
+                ) : (
+                  <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+                )}
               </button>
             );
           })}
@@ -338,7 +461,7 @@ const DashboardPage = () => {
           <h2 className="font-bold text-gray-900 mb-4">Actions rapides</h2>
           <div className="space-y-3">
             <button
-              onClick={() => navigate("/clients")}
+              onClick={() => handleNavigation("/clients", "add_client")}
               className="w-full flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 text-left"
             >
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -346,8 +469,11 @@ const DashboardPage = () => {
               </div>
               <div className="flex-1">
                 <p className="font-medium">Ajouter un client</p>
-                <p className="text-sm text-gray-500">Nouveau client ou import Excel</p>
+                <p className="text-sm text-gray-500">
+                  {isDemoMode ? "Verrouillé en mode démo" : "Nouveau client ou import Excel"}
+                </p>
               </div>
+              {isDemoMode && <Lock className="w-4 h-4 text-orange-500" />}
             </button>
 
             <button
@@ -364,7 +490,7 @@ const DashboardPage = () => {
             </button>
 
             <button
-              onClick={() => navigate("/settings")}
+              onClick={() => handleNavigation("/settings", "settings")}
               className="w-full flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 text-left"
             >
               <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -372,8 +498,11 @@ const DashboardPage = () => {
               </div>
               <div className="flex-1">
                 <p className="font-medium">Paramètres</p>
-                <p className="text-sm text-gray-500">Configurer votre compte</p>
+                <p className="text-sm text-gray-500">
+                  {isDemoMode ? "Verrouillé en mode démo" : "Configurer votre compte"}
+                </p>
               </div>
+              {isDemoMode && <Lock className="w-4 h-4 text-orange-500" />}
             </button>
           </div>
         </div>
@@ -387,14 +516,14 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Onboarding progress (bannière) */}
-      {onboardingProgress && !(onboardingProgress.completed || onboardingProgress.onboarding_complete) && (
+      {/* Onboarding progress (bannière) - Masqué en mode démo */}
+      {!isDemoMode && onboardingProgress && !(onboardingProgress.completed || onboardingProgress.onboarding_complete) && (
         <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-gray-900">Finalisez votre configuration</h3>
               <p className="text-gray-600 text-sm">
-                Suivez l’onboarding pour paramétrer votre entreprise et commencer rapidement.
+                Suivez l'onboarding pour paramétrer votre entreprise et commencer rapidement.
               </p>
             </div>
             <button
@@ -407,8 +536,8 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* Onboarding modal */}
-      {showOnboarding && (
+      {/* Onboarding modal - Masqué en mode démo */}
+      {!isDemoMode && showOnboarding && (
         <OnboardingWizard
           orgId={orgId}
           onClose={() => setShowOnboarding(false)}
@@ -418,6 +547,15 @@ const DashboardPage = () => {
           }}
         />
       )}
+
+      {/* ============================================================
+          FIX: Modal pour les fonctionnalités verrouillées
+          ============================================================ */}
+      <LockedFeatureModal
+        isOpen={lockedModal.open}
+        onClose={() => setLockedModal({ open: false, feature: "default" })}
+        featureType={lockedModal.feature}
+      />
     </div>
   );
 };

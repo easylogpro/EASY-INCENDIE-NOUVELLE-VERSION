@@ -1,5 +1,7 @@
 // src/pages/CompleteProfilePage.jsx
-// VERSION CORRIGÉE - Utilise la fonction RPC complete_registration (bypass RLS)
+// VERSION CORRIGÉE - Redirige vers /dashboard au lieu de /demo
+// Le Dashboard gère la démo 3 minutes en mode lecture seule
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -170,19 +172,12 @@ const CompleteProfilePage = () => {
       // Rafraîchir les données utilisateur
       await refreshUserData();
 
-      // Rediriger vers la démo avec les données du questionnaire
-      navigate('/demo', {
-        state: {
-          request: {
-            organisation_id: rpcResult.organisation_id,
-            domaines_demandes: domaines,
-            profil_demande: prospectData?.profil_demande || 'mainteneur',
-            nb_utilisateurs: prospectData?.nb_utilisateurs || '1',
-            tarif_calcule: prospectData?.tarif_calcule,
-            options_selectionnees: prospectData?.options_selectionnees || {}
-          }
-        }
-      });
+      // ============================================================
+      // FIX: Rediriger vers /dashboard au lieu de /demo
+      // Le Dashboard va détecter qu'il n'y a pas d'abonnement et
+      // proposer le bloc "Avant paiement" avec démo 3 min
+      // ============================================================
+      navigate('/dashboard', { replace: true });
 
     } catch (err) {
       console.error('❌ Erreur submit:', err);

@@ -1,0 +1,32 @@
+-- (optionnel) activer RLS si besoin
+ALTER TABLE public.abonnements ENABLE ROW LEVEL SECURITY;
+
+-- INSERT: autoriser un user à créer un abonnement uniquement pour SON organisation
+DROP POLICY IF EXISTS "insert_own_org_abonnement" ON public.abonnements;
+
+CREATE POLICY "insert_own_org_abonnement"
+ON public.abonnements
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  organisation_id IN (
+    SELECT organisation_id
+    FROM public.utilisateurs
+    WHERE auth_id = auth.uid()
+  )
+);
+
+-- SELECT (utile pour le dashboard)
+DROP POLICY IF EXISTS "select_own_org_abonnement" ON public.abonnements;
+
+CREATE POLICY "select_own_org_abonnement"
+ON public.abonnements
+FOR SELECT
+TO authenticated
+USING (
+  organisation_id IN (
+    SELECT organisation_id
+    FROM public.utilisateurs
+    WHERE auth_id = auth.uid()
+  )
+);

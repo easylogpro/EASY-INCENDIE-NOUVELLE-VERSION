@@ -1,0 +1,16 @@
+alter table public.demandes_prospects enable row level security;
+
+-- Autoriser uniquement INSERT pour anon
+create policy "anon_insert_demandes_prospects"
+on public.demandes_prospects
+for insert
+to anon
+with check (true);
+
+-- Optionnel: autoriser SELECT au user authentifié sur sa propre demande (par email)
+-- (utile pour afficher le bloc sur le dashboard)
+create policy "auth_select_own_demandes_prospects"
+on public.demandes_prospects
+for select
+to authenticated
+using ((email = (auth.jwt() ->> 'email')));

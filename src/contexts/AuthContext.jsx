@@ -1,4 +1,7 @@
 // src/contexts/AuthContext.jsx
+// VERSION CORRIGÉE - Attend loadUserData AVANT de mettre loading=false
+// Fix: Race condition qui causait redirection vers / et onboarding non affiché
+
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../config/supabase";
 
@@ -57,6 +60,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
+      console.log("loadUserData: Fetching utilisateurs for", authUser.id);
+      
       const { data, error } = await supabase
         .from("utilisateurs")
         .select("*")
@@ -75,6 +80,7 @@ export const AuthProvider = ({ children }) => {
 
       if (!data) {
         // Profil inexistant => il faut compléter
+        console.log("loadUserData: No user found, needsProfile = true");
         setNeedsProfile(true);
         setUserData(null);
         setOrgSettings(null);
@@ -82,6 +88,7 @@ export const AuthProvider = ({ children }) => {
         return null;
       }
 
+      console.log("loadUserData: User found", data.id, "org:", data.organisation_id);
       setUserData(data);
       setNeedsProfile(false);
 
@@ -125,7 +132,7 @@ export const AuthProvider = ({ children }) => {
         console.warn("Auth loading timeout: forcing loading=false");
         safeSetLoadingFalse();
       }
-    }, 6000);
+    }, 8000); // Augmenté à 8s pour laisser le temps au loadUserData
 
     const init = async () => {
       try {
@@ -138,9 +145,14 @@ export const AuthProvider = ({ children }) => {
 
         if (cancelled) return;
 
-        // IMPORTANT: on débloque l'UI tout de suite
         if (session?.user) {
           setUser(session.user);
+          
+          // ============================================================
+          // FIX CRITIQUE: ATTENDRE loadUserData AVANT de mettre loading=false
+          // Sinon needsProfile reste false et l'utilisateur est redirigé vers /
+          // ============================================================
+          await loadUserData(session.user);
         } else {
           setUser(null);
           setUserData(null);
@@ -149,11 +161,9 @@ export const AuthProvider = ({ children }) => {
           setNeedsProfile(false);
         }
 
-        safeSetLoadingFalse();
-
-        // On charge le profil en arrière-plan (ne bloque plus l'écran)
-        if (session?.user) {
-          void loadUserData(session.user);
+        // Maintenant on peut débloquer l'UI
+        if (!cancelled) {
+          safeSetLoadingFalse();
         }
       } catch (e) {
         console.error("init auth crash:", e);
@@ -165,21 +175,28 @@ export const AuthProvider = ({ children }) => {
 
     const {
       data: { subscription: authSub },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return;
 
-      // On débloque l'UI immédiatement (important)
-      safeSetLoadingFalse();
+      console.log("Auth event:", event);
 
       if (session?.user) {
         setUser(session.user);
-        void loadUserData(session.user);
+        
+        // ============================================================
+        // FIX CRITIQUE: ATTENDRE loadUserData aussi dans onAuthStateChange
+        // ============================================================
+        await loadUserData(session.user);
+        
+        // Débloquer l'UI après le chargement
+        safeSetLoadingFalse();
       } else {
         setUser(null);
         setUserData(null);
         setOrgSettings(null);
         setSubscription(null);
         setNeedsProfile(false);
+        safeSetLoadingFalse();
       }
     });
 
